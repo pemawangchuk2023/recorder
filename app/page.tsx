@@ -47,9 +47,9 @@ const features: { title: string; description: string; icon: ReactNode }[] = [
     ),
   },
   {
-    title: "Webcam bubble",
+    title: "Floating camera bubble",
     description:
-      "A round camera bubble in any corner, in three sizes — it keeps recording when you switch apps.",
+      "A round camera badge floats over any app while you record. Pick any camera — or record just yourself.",
     icon: (
       <Icon>
         <rect x="3" y="6" width="13" height="12" rx="2" />
@@ -95,7 +95,7 @@ const features: { title: string; description: string; icon: ReactNode }[] = [
 const steps = [
   {
     title: "Pick your setup",
-    description: "Choose quality, microphone, webcam bubble and captions.",
+    description: "Record your screen or just your camera, and choose your camera, microphone and captions.",
   },
   {
     title: "Share and talk",

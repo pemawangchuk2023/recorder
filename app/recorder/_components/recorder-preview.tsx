@@ -1,44 +1,43 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { formatTime } from "@/app/recorder/_lib/format-time";
 import type { RecorderStatus } from "@/app/recorder/_lib/types";
 
 interface RecorderPreviewProps {
   status: RecorderStatus;
   previewStream: MediaStream | null;
+  // Shown before recording starts, e.g. the camera in camera-only mode.
+  idleStream: MediaStream | null;
   countdownValue: number | null;
   elapsedSeconds: number;
   playbackUrl: string | null;
 }
 
-function formatTime(totalSeconds: number): string {
-  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
-  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
-  return `${minutes}:${seconds}`;
-}
-
 export function RecorderPreview({
   status,
   previewStream,
+  idleStream,
   countdownValue,
   elapsedSeconds,
   playbackUrl,
 }: RecorderPreviewProps) {
   const liveVideoRef = useRef<HTMLVideoElement>(null);
+  const showPlayback = status === "stopped" && playbackUrl !== null;
+  const liveStream = previewStream ?? (showPlayback ? null : idleStream);
 
   useEffect(() => {
     const video = liveVideoRef.current;
     if (!video) {
       return;
     }
-    video.srcObject = previewStream;
-    if (previewStream) {
+    video.srcObject = liveStream;
+    if (liveStream) {
       video.play().catch(() => {});
     }
-  }, [previewStream]);
+  }, [liveStream]);
 
-  const showPlayback = status === "stopped" && playbackUrl !== null;
-  const showLive = previewStream !== null && !showPlayback;
+  const showLive = liveStream !== null;
   const isActive = status === "recording" || status === "paused";
 
   return (

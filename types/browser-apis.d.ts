@@ -27,6 +27,20 @@ declare global {
     monitorTypeSurfaces?: "include" | "exclude";
   }
 
+  // Document Picture-in-Picture (Chrome/Edge 116+): an always-on-top window.
+  interface DocumentPictureInPicture extends EventTarget {
+    readonly window: Window | null;
+    requestWindow(options?: {
+      width?: number;
+      height?: number;
+      disallowReturnToOpener?: boolean;
+    }): Promise<Window>;
+  }
+
+  interface Window {
+    documentPictureInPicture?: DocumentPictureInPicture;
+  }
+
   // Chromium "breakout box" APIs (Chrome/Edge 94+).
   interface MediaStreamTrackProcessor {
     readonly readable: ReadableStream<VideoFrame>;

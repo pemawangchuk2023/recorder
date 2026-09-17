@@ -33,9 +33,10 @@ export function getMp4MimeType(): string | null {
 }
 
 export function isRecordingSupported(): boolean {
-  return (
-    window.isSecureContext &&
-    typeof navigator.mediaDevices?.getDisplayMedia === "function" &&
-    getMp4MimeType() !== null
-  );
+  return window.isSecureContext && getMp4MimeType() !== null;
+}
+
+// Desktop Chrome/Edge only — phone browsers can record the camera but not the screen.
+export function isScreenCaptureSupported(): boolean {
+  return typeof navigator.mediaDevices?.getDisplayMedia === "function";
 }

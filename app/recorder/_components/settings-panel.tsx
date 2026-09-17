@@ -2,28 +2,40 @@
 
 import type { ReactNode } from "react";
 import type { CaptionModel } from "@/app/recorder/_hooks/use-caption-model";
-import type { Microphone } from "@/app/recorder/_hooks/use-microphones";
+import type { MediaDevice } from "@/app/recorder/_hooks/use-devices";
 import type {
+  BubbleCorner,
+  BubbleSize,
   FrameRate,
   RecorderSettings,
+  RecordingSource,
   Resolution,
-  WebcamCorner,
-  WebcamSize,
 } from "@/app/recorder/_lib/types";
 
 interface SettingsPanelProps {
   settings: RecorderSettings;
   onChange: (settings: RecorderSettings) => void;
   disabled: boolean;
-  microphones: Microphone[];
+  screenSupported: boolean;
+  onSourceChange: (source: RecordingSource) => void;
+  cameras: MediaDevice[];
+  cameraError: string | null;
+  onCameraToggle: (enabled: boolean) => void;
+  floatingBubble: { supported: boolean; isOpen: boolean; open: () => void; close: () => void };
+  microphones: MediaDevice[];
   micLevel: number;
   onMicToggle: (enabled: boolean) => void;
-  onMicListOpen: () => void;
+  onDeviceListOpen: () => void;
   captionModel: CaptionModel;
   onCaptionsToggle: (enabled: boolean) => void;
 }
 
-const CORNERS: { value: WebcamCorner; label: string }[] = [
+const SOURCES: { value: RecordingSource; label: string }[] = [
+  { value: "screen", label: "Screen" },
+  { value: "camera", label: "Camera only" },
+];
+
+const CORNERS: { value: BubbleCorner; label: string }[] = [
   { value: "top-left", label: "Top left" },
   { value: "top-right", label: "Top right" },
   { value: "bottom-left", label: "Bottom left" },
@@ -32,6 +44,15 @@ const CORNERS: { value: WebcamCorner; label: string }[] = [
 
 const control =
   "w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base dark:border-zinc-700 dark:bg-zinc-900";
+const hint = "text-base leading-relaxed text-zinc-500 dark:text-zinc-400";
+
+function choiceClass(selected: boolean): string {
+  return `rounded-xl border px-3 py-2.5 text-base font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+    selected
+      ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"
+      : "border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+  }`;
+}
 
 function Section({ title, disabled, children }: { title: string; disabled: boolean; children: ReactNode }) {
   return (
@@ -79,6 +100,34 @@ function Toggle({
   );
 }
 
+function DeviceSelect({
+  devices,
+  value,
+  onOpen,
+  onChange,
+}: {
+  devices: MediaDevice[];
+  value: string | undefined;
+  onOpen: () => void;
+  onChange: (deviceId: string | undefined) => void;
+}) {
+  return (
+    <select
+      className={control}
+      value={value ?? ""}
+      onFocus={onOpen}
+      onChange={(event) => onChange(event.target.value || undefined)}
+    >
+      <option value="">System default</option>
+      {devices.map((device) => (
+        <option key={device.deviceId} value={device.deviceId}>
+          {device.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function captionStatusText({ status, installFailed }: CaptionModel): string {
   switch (status) {
     case "checking":
@@ -102,42 +151,112 @@ export function SettingsPanel({
   settings,
   onChange,
   disabled,
+  screenSupported,
+  onSourceChange,
+  cameras,
+  cameraError,
+  onCameraToggle,
+  floatingBubble,
   microphones,
   micLevel,
   onMicToggle,
-  onMicListOpen,
+  onDeviceListOpen,
   captionModel,
   onCaptionsToggle,
 }: SettingsPanelProps) {
   const update = (patch: Partial<RecorderSettings>) => onChange({ ...settings, ...patch });
+  const recordsScreen = settings.source === "screen";
   const captionsImpossible =
     captionModel.status === "unsupported" || captionModel.status === "unavailable";
 
   return (
     <aside className="flex flex-col gap-5">
-      <Section title="Quality" disabled={disabled}>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Resolution">
-            <select
-              className={control}
-              value={settings.resolution}
-              onChange={(event) => update({ resolution: event.target.value as Resolution })}
+      <Section title="Record" disabled={disabled}>
+        <div className="grid grid-cols-2 gap-2">
+          {SOURCES.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={settings.source === value}
+              disabled={value === "screen" && !screenSupported}
+              onClick={() => onSourceChange(value)}
+              className={choiceClass(settings.source === value)}
             >
-              <option value="720p">720p</option>
-              <option value="1080p">1080p</option>
-            </select>
-          </Field>
-          <Field label="Frame rate">
-            <select
-              className={control}
-              value={settings.frameRate}
-              onChange={(event) => update({ frameRate: Number(event.target.value) as FrameRate })}
-            >
-              <option value={30}>30 fps</option>
-              <option value={60}>60 fps</option>
-            </select>
-          </Field>
+              {label}
+            </button>
+          ))}
         </div>
+        {!screenSupported && (
+          <p className={hint}>Screen recording needs Chrome or Edge on a computer.</p>
+        )}
+      </Section>
+
+      <Section title="Camera" disabled={disabled}>
+        <Toggle label="Use camera" checked={settings.camera.enabled} onChange={onCameraToggle} />
+        {settings.camera.enabled && (
+          <>
+            <Field label="Camera">
+              <DeviceSelect
+                devices={cameras}
+                value={settings.camera.deviceId}
+                onOpen={onDeviceListOpen}
+                onChange={(deviceId) => update({ camera: { ...settings.camera, deviceId } })}
+              />
+            </Field>
+            {cameraError && (
+              <p className="text-base text-amber-700 dark:text-amber-400">{cameraError}</p>
+            )}
+
+            {recordsScreen && floatingBubble.supported && (
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={floatingBubble.isOpen ? floatingBubble.close : floatingBubble.open}
+                  className="self-start rounded-full bg-zinc-900 px-5 py-2.5 text-base font-semibold text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+                >
+                  {floatingBubble.isOpen ? "Hide floating bubble" : "Show floating bubble"}
+                </button>
+                <p className={hint}>
+                  Floats on top of every app so you can see yourself. Drag it anywhere.
+                </p>
+              </div>
+            )}
+
+            {recordsScreen && (
+              <>
+                <p className="text-base font-medium text-zinc-800 dark:text-zinc-200">
+                  Bubble position when you share a window or tab
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {CORNERS.map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={settings.camera.corner === value}
+                      onClick={() => update({ camera: { ...settings.camera, corner: value } })}
+                      className={choiceClass(settings.camera.corner === value)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <Field label="Bubble size">
+                  <select
+                    className={control}
+                    value={settings.camera.size}
+                    onChange={(event) =>
+                      update({ camera: { ...settings.camera, size: event.target.value as BubbleSize } })
+                    }
+                  >
+                    <option value="small">Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                  </select>
+                </Field>
+              </>
+            )}
+          </>
+        )}
       </Section>
 
       <Section title="Microphone" disabled={disabled}>
@@ -145,21 +264,12 @@ export function SettingsPanel({
         {settings.mic.enabled && (
           <>
             <Field label="Input device">
-              <select
-                className={control}
-                value={settings.mic.deviceId ?? ""}
-                onFocus={onMicListOpen}
-                onChange={(event) =>
-                  update({ mic: { ...settings.mic, deviceId: event.target.value || undefined } })
-                }
-              >
-                <option value="">System default</option>
-                {microphones.map((mic) => (
-                  <option key={mic.deviceId} value={mic.deviceId}>
-                    {mic.label}
-                  </option>
-                ))}
-              </select>
+              <DeviceSelect
+                devices={microphones}
+                value={settings.mic.deviceId}
+                onOpen={onDeviceListOpen}
+                onChange={(deviceId) => update({ mic: { ...settings.mic, deviceId } })}
+              />
             </Field>
             <Field label="Microphone volume">
               <input
@@ -183,66 +293,6 @@ export function SettingsPanel({
                 />
               </div>
             </div>
-          </>
-        )}
-      </Section>
-
-      <Section title="Tab or system audio" disabled={disabled}>
-        <Field label="Volume">
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            className="accent-red-600"
-            value={settings.systemAudio.gain}
-            onChange={(event) => update({ systemAudio: { gain: Number(event.target.value) } })}
-          />
-        </Field>
-        <p className="text-base leading-relaxed text-zinc-500 dark:text-zinc-400">
-          Only recorded when the source you share includes audio — for example a
-          Chrome tab with &quot;Also share tab audio&quot; turned on.
-        </p>
-      </Section>
-
-      <Section title="Webcam" disabled={disabled}>
-        <Toggle
-          label="Show webcam bubble"
-          checked={settings.webcam.enabled}
-          onChange={(enabled) => update({ webcam: { ...settings.webcam, enabled } })}
-        />
-        {settings.webcam.enabled && (
-          <>
-            <div className="grid grid-cols-2 gap-2">
-              {CORNERS.map(({ value, label }) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={settings.webcam.corner === value}
-                  onClick={() => update({ webcam: { ...settings.webcam, corner: value } })}
-                  className={`rounded-xl border px-3 py-2.5 text-base font-medium transition-colors ${
-                    settings.webcam.corner === value
-                      ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"
-                      : "border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <Field label="Bubble size">
-              <select
-                className={control}
-                value={settings.webcam.size}
-                onChange={(event) =>
-                  update({ webcam: { ...settings.webcam, size: event.target.value as WebcamSize } })
-                }
-              >
-                <option value="small">Small</option>
-                <option value="medium">Medium</option>
-                <option value="large">Large</option>
-              </select>
-            </Field>
           </>
         )}
       </Section>
@@ -272,9 +322,52 @@ export function SettingsPanel({
             )}
           </>
         )}
-        <p className="text-base leading-relaxed text-zinc-500 dark:text-zinc-400">
-          {captionStatusText(captionModel)}
-        </p>
+        <p className={hint}>{captionStatusText(captionModel)}</p>
+      </Section>
+
+      {recordsScreen && (
+        <Section title="Tab or system audio" disabled={disabled}>
+          <Field label="Volume">
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              className="accent-red-600"
+              value={settings.systemAudio.gain}
+              onChange={(event) => update({ systemAudio: { gain: Number(event.target.value) } })}
+            />
+          </Field>
+          <p className={hint}>
+            Only recorded when the source you share includes audio — for example a
+            Chrome tab with &quot;Also share tab audio&quot; turned on.
+          </p>
+        </Section>
+      )}
+
+      <Section title="Quality" disabled={disabled}>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Resolution">
+            <select
+              className={control}
+              value={settings.resolution}
+              onChange={(event) => update({ resolution: event.target.value as Resolution })}
+            >
+              <option value="720p">720p</option>
+              <option value="1080p">1080p</option>
+            </select>
+          </Field>
+          <Field label="Frame rate">
+            <select
+              className={control}
+              value={settings.frameRate}
+              onChange={(event) => update({ frameRate: Number(event.target.value) as FrameRate })}
+            >
+              <option value={30}>30 fps</option>
+              <option value={60}>60 fps</option>
+            </select>
+          </Field>
+        </div>
       </Section>
     </aside>
   );

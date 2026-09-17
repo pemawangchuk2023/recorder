@@ -1,7 +1,7 @@
 import type {
+  BubbleCorner,
+  BubbleSize,
   FrameRate,
-  WebcamCorner,
-  WebcamSize,
 } from "@/app/recorder/_lib/types";
 
 export interface VideoCompositor {
@@ -16,12 +16,12 @@ interface CreateVideoCompositorOptions {
   maxWidth: number;
   maxHeight: number;
   frameRate: FrameRate;
-  corner: WebcamCorner;
-  size: WebcamSize;
+  corner: BubbleCorner;
+  size: BubbleSize;
 }
 
-// Bubble diameter as a fraction of the video height.
-const WEBCAM_SIZE_RATIO: Record<WebcamSize, number> = {
+// Camera circle diameter as a fraction of the video height.
+const WEBCAM_SIZE_RATIO: Record<BubbleSize, number> = {
   small: 0.18,
   medium: 0.25,
   large: 0.33,
@@ -173,15 +173,17 @@ export function createVideoCompositor(
       )
     : null;
 
-  // Webcam bubble geometry.
+  // Camera badge geometry: a circular camera on a white rounded card, matching
+  // the floating bubble window.
   const diameter = Math.round(height * WEBCAM_SIZE_RATIO[size]);
   const radius = diameter / 2;
-  const ring = Math.max(2, Math.round(diameter * 0.025));
-  const inset = Math.round(height * 0.035) + ring;
-  const bubbleX = corner.endsWith("left") ? inset : width - inset - diameter;
-  const bubbleY = corner.startsWith("top") ? inset : height - inset - diameter;
-  const centerX = bubbleX + radius;
-  const centerY = bubbleY + radius;
+  const padding = Math.max(3, Math.round(diameter * 0.04));
+  const badgeSize = diameter + padding * 2;
+  const inset = Math.round(height * 0.035);
+  const badgeX = corner.endsWith("left") ? inset : width - inset - badgeSize;
+  const badgeY = corner.startsWith("top") ? inset : height - inset - badgeSize;
+  const centerX = badgeX + badgeSize / 2;
+  const centerY = badgeY + badgeSize / 2;
 
   // Caption geometry: centered near the bottom, kept clear of a bottom-corner
   // bubble — beside it when the frame is wide enough, above it otherwise.
@@ -195,11 +197,11 @@ export function createVideoCompositor(
   // ~50 characters per line at most, like broadcast subtitles.
   let captionMaxWidth = Math.min(width * 0.8, fontSize * 26);
   if (webcamTrack && corner.startsWith("bottom")) {
-    const clearWidth = width - 2 * (inset + diameter + ring + gap);
+    const clearWidth = width - 2 * (inset + badgeSize + gap);
     if (clearWidth >= width * 0.5) {
       captionMaxWidth = Math.min(captionMaxWidth, clearWidth);
     } else {
-      captionBottom = bubbleY - ring - gap;
+      captionBottom = badgeY - gap;
     }
   }
   let captionLines: string[] = [];
@@ -207,12 +209,12 @@ export function createVideoCompositor(
 
   const drawBubble = (webcam: VideoFrame) => {
     ctx.save();
-    ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
-    ctx.shadowBlur = Math.round(diameter * 0.08);
-    ctx.shadowOffsetY = Math.round(diameter * 0.02);
+    ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+    ctx.shadowBlur = Math.round(badgeSize * 0.08);
+    ctx.shadowOffsetY = Math.round(badgeSize * 0.02);
     ctx.fillStyle = "#fff";
     ctx.beginPath();
-    ctx.arc(centerX, centerY, radius + ring, 0, Math.PI * 2);
+    ctx.roundRect(badgeX, badgeY, badgeSize, badgeSize, Math.round(badgeSize * 0.24));
     ctx.fill();
     ctx.restore();
 
@@ -227,8 +229,8 @@ export function createVideoCompositor(
       (webcam.displayHeight - side) / 2,
       side,
       side,
-      bubbleX,
-      bubbleY,
+      centerX - radius,
+      centerY - radius,
       diameter,
       diameter
     );

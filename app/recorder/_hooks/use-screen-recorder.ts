@@ -56,6 +56,14 @@ function stopTracks(stream: MediaStream | null | undefined): void {
   stream?.getTracks().forEach((track) => track.stop());
 }
 
+export interface StartOptions {
+  // The live camera from useCamera; the recorder uses a clone and never stops the original.
+  cameraStream: MediaStream | null;
+  // When a full screen is shared, a floating bubble is already visible in the
+  // capture, so it must not be drawn into the video a second time.
+  floatingBubbleOpen: boolean;
+}
+
 export interface ScreenRecorder {
   status: RecorderStatus;
   isCountingDown: boolean;
@@ -66,7 +74,7 @@ export interface ScreenRecorder {
   notices: string[];
   previewStream: MediaStream | null;
   micAnalyser: AnalyserNode | null;
-  start: (settings: RecorderSettings) => Promise<void>;
+  start: (settings: RecorderSettings, options: StartOptions) => Promise<void>;
   stop: () => void;
   pause: () => void;
   resume: () => void;
@@ -85,14 +93,16 @@ export function useScreenRecorder(): ScreenRecorder {
 
   const countdown = useCountdown(COUNTDOWN_SECONDS);
   const countdownResolverRef = useRef<(() => void) | null>(null);
+  // True from start() until cleanup. status stays "idle" through permission
+  // prompts and the countdown, so this is what blocks a second start().
+  const busyRef = useRef(false);
   // Set when stop() or unmount happens while start() is still awaiting a
   // permission prompt or the countdown; start() checks it after every await.
   const startAbortedRef = useRef(false);
-  const isAcquiringRef = useRef(false);
 
   const displayStreamRef = useRef<MediaStream | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
-  const webcamStreamRef = useRef<MediaStream | null>(null);
+  const cameraTrackRef = useRef<MediaStreamTrack | null>(null);
   const audioMixerRef = useRef<AudioMixer | null>(null);
   const compositorRef = useRef<VideoCompositor | null>(null);
   const captionerRef = useRef<LiveCaptioner | null>(null);
@@ -151,16 +161,17 @@ export function useScreenRecorder(): ScreenRecorder {
 
     stopTracks(displayStreamRef.current);
     stopTracks(micStreamRef.current);
-    stopTracks(webcamStreamRef.current);
+    cameraTrackRef.current?.stop();
     displayStreamRef.current = null;
     micStreamRef.current = null;
-    webcamStreamRef.current = null;
+    cameraTrackRef.current = null;
 
     void audioMixerRef.current?.close();
     audioMixerRef.current = null;
 
     setMicAnalyser(null);
     setPreviewStream(null);
+    busyRef.current = false;
   }, [stopTimer]);
 
   // Returns true when a real recording was stopped (onstop will follow).
@@ -197,23 +208,24 @@ export function useScreenRecorder(): ScreenRecorder {
   }, [getActiveMs]);
 
   const start = useCallback(
-    async (settings: RecorderSettings) => {
+    async (settings: RecorderSettings, { cameraStream, floatingBubbleOpen }: StartOptions) => {
       const mimeType = getMp4MimeType();
-      if (!mimeType || typeof navigator.mediaDevices?.getDisplayMedia !== "function") {
-        setError("Screen recording isn't supported in this browser. Use an up-to-date Chrome or Edge on desktop.");
+      if (!mimeType) {
+        setError("Recording isn't supported in this browser. Use an up-to-date Chrome or Edge.");
         return;
       }
-
-      // status stays "idle" through permission prompts and the countdown, so
-      // these refs are what prevent a second start() from racing the first.
-      if (
-        isAcquiringRef.current ||
-        displayStreamRef.current !== null ||
-        mediaRecorderRef.current !== null
-      ) {
+      const recordsCamera = settings.source === "camera";
+      const liveCameraTrack = settings.camera.enabled
+        ? (cameraStream?.getVideoTracks()[0] ?? null)
+        : null;
+      if (recordsCamera && !liveCameraTrack) {
+        setError("Turn on your camera to record camera only.");
         return;
       }
-      isAcquiringRef.current = true;
+      if (busyRef.current) {
+        return;
+      }
+      busyRef.current = true;
 
       setError(null);
       setBlob(null);
@@ -230,47 +242,62 @@ export function useScreenRecorder(): ScreenRecorder {
         cleanup();
         setStatus("idle");
       };
-
-      let displayStream: MediaStream;
-      try {
-        displayStream = await navigator.mediaDevices.getDisplayMedia({
-          video: {
-            width: { ideal: width },
-            height: { ideal: height },
-            frameRate: { ideal: settings.frameRate },
-          },
-          // Tab/system audio should be captured as-is, not voice-processed.
-          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-          systemAudio: "include",
-          surfaceSwitching: "include",
-        });
-      } catch (cause) {
-        setError(describeScreenCaptureError(cause));
-        return;
-      } finally {
-        isAcquiringRef.current = false;
-      }
-      if (startAbortedRef.current) {
-        stopTracks(displayStream);
-        return;
-      }
-      displayStreamRef.current = displayStream;
-
-      const videoTrack = displayStream.getVideoTracks()[0];
-      if (!videoTrack) {
-        abort();
-        setError("The browser didn't provide a video track for the shared screen.");
-        return;
-      }
-      // "detail" keeps text sharp; "motion" keeps 60 fps smooth.
-      videoTrack.contentHint = settings.frameRate === 60 ? "motion" : "detail";
-      // Fires when the user clicks the browser's own "Stop sharing" button.
-      videoTrack.onended = () => {
+      const onSourceEnded = () => {
         startAbortedRef.current = true;
         cancelCountdown();
         finishRecording();
       };
-      const systemAudioTrack = displayStream.getAudioTracks()[0] ?? null;
+
+      // The recorder works on its own copy of the camera track, so stopping a
+      // recording never turns off the live camera bubble.
+      const cameraTrack = liveCameraTrack?.clone() ?? null;
+      cameraTrackRef.current = cameraTrack;
+
+      let mainVideoTrack: MediaStreamTrack;
+      let systemAudioTrack: MediaStreamTrack | null = null;
+      let sharesFullScreen = false;
+
+      if (recordsCamera && cameraTrack) {
+        mainVideoTrack = cameraTrack;
+        cameraTrack.onended = onSourceEnded;
+      } else {
+        let displayStream: MediaStream;
+        try {
+          displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+              width: { ideal: width },
+              height: { ideal: height },
+              frameRate: { ideal: settings.frameRate },
+            },
+            // Tab/system audio should be captured as-is, not voice-processed.
+            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+            systemAudio: "include",
+            surfaceSwitching: "include",
+          });
+        } catch (cause) {
+          abort();
+          setError(describeScreenCaptureError(cause));
+          return;
+        }
+        displayStreamRef.current = displayStream;
+        if (startAbortedRef.current) {
+          return abort();
+        }
+
+        const videoTrack = displayStream.getVideoTracks()[0];
+        if (!videoTrack) {
+          abort();
+          setError("The browser didn't provide a video track for the shared screen.");
+          return;
+        }
+        // "detail" keeps text sharp; "motion" keeps 60 fps smooth.
+        videoTrack.contentHint = settings.frameRate === 60 ? "motion" : "detail";
+        // Fires when the user clicks the browser's own "Stop sharing" button.
+        videoTrack.onended = onSourceEnded;
+        mainVideoTrack = videoTrack;
+        systemAudioTrack = displayStream.getAudioTracks()[0] ?? null;
+        sharesFullScreen = videoTrack.getSettings().displaySurface === "monitor";
+      }
 
       let micStream: MediaStream | null = null;
       if (settings.mic.enabled) {
@@ -282,25 +309,6 @@ export function useScreenRecorder(): ScreenRecorder {
         micStreamRef.current = micStream;
         if (startAbortedRef.current) {
           return abort();
-        }
-      }
-
-      let webcamStream: MediaStream | null = null;
-      if (settings.webcam.enabled) {
-        if (!isVideoCompositorSupported()) {
-          newNotices.push("This browser can't draw a webcam bubble — recording the screen only.");
-        } else {
-          try {
-            webcamStream = await navigator.mediaDevices.getUserMedia({
-              video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-            });
-          } catch (cause) {
-            newNotices.push(describeDeviceError(cause, "camera"));
-          }
-          webcamStreamRef.current = webcamStream;
-          if (startAbortedRef.current) {
-            return abort();
-          }
         }
       }
 
@@ -328,29 +336,37 @@ export function useScreenRecorder(): ScreenRecorder {
         }
       }
 
-      let outputVideoTrack: MediaStreamTrack = videoTrack;
-      const webcamTrack = webcamStream?.getVideoTracks()[0] ?? null;
-      if (webcamTrack || captionsReady) {
+      // Draw the camera bubble into the video, unless this is a camera-only
+      // recording or the floating bubble is already part of a full-screen capture.
+      const drawsBubble =
+        !recordsCamera && cameraTrack !== null && !(sharesFullScreen && floatingBubbleOpen);
+      if (!recordsCamera && cameraTrack && !drawsBubble) {
+        cameraTrack.stop();
+      }
+      if (drawsBubble && !isVideoCompositorSupported()) {
+        newNotices.push("This browser can't draw the camera bubble into the video — recording the screen only.");
+      }
+
+      let outputVideoTrack = mainVideoTrack;
+      if ((drawsBubble || captionsReady) && isVideoCompositorSupported()) {
         try {
           compositorRef.current = createVideoCompositor({
-            screenTrack: videoTrack,
-            webcamTrack,
+            screenTrack: mainVideoTrack,
+            webcamTrack: drawsBubble ? cameraTrack : null,
             maxWidth: width,
             maxHeight: height,
             frameRate: settings.frameRate,
-            corner: settings.webcam.corner,
-            size: settings.webcam.size,
+            corner: settings.camera.corner,
+            size: settings.camera.size,
           });
           outputVideoTrack = compositorRef.current.videoTrack;
         } catch {
-          newNotices.push("The video overlay couldn't be drawn — recording the screen without the webcam bubble or captions.");
-          stopTracks(webcamStream);
-          webcamStreamRef.current = null;
+          newNotices.push("The video overlay couldn't be drawn — recording without the camera bubble or captions.");
           captionsReady = false;
         }
       }
 
-      if (!systemAudioTrack) {
+      if (!recordsCamera && !systemAudioTrack) {
         newNotices.push(
           micTrack
             ? "This share has no tab or system audio, so only your microphone is recorded. To include sound, share a Chrome tab with “Also share tab audio” turned on."
