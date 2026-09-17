@@ -31,15 +31,15 @@ const CORNERS: { value: WebcamCorner; label: string }[] = [
 ];
 
 const control =
-  "w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+  "w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base dark:border-zinc-700 dark:bg-zinc-900";
 
 function Section({ title, disabled, children }: { title: string; disabled: boolean; children: ReactNode }) {
   return (
     <fieldset
       disabled={disabled}
-      className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900"
+      className="flex flex-col gap-4 rounded-3xl border border-zinc-200 bg-white p-6 disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900"
     >
-      <legend className="px-1 text-sm font-semibold">{title}</legend>
+      <legend className="px-1.5 text-lg font-semibold">{title}</legend>
       {children}
     </fieldset>
   );
@@ -47,7 +47,7 @@ function Section({ title, disabled, children }: { title: string; disabled: boole
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="flex flex-col gap-1.5 text-sm text-zinc-700 dark:text-zinc-300">
+    <label className="flex flex-col gap-2 text-base text-zinc-700 dark:text-zinc-300">
       {label}
       {children}
     </label>
@@ -66,11 +66,11 @@ function Toggle({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-3 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+    <label className="flex items-center justify-between gap-4 text-base font-medium text-zinc-800 dark:text-zinc-200">
       {label}
       <input
         type="checkbox"
-        className="h-4 w-4 accent-red-600"
+        className="h-5 w-5 shrink-0 accent-red-600"
         checked={checked}
         disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
@@ -114,9 +114,9 @@ export function SettingsPanel({
     captionModel.status === "unsupported" || captionModel.status === "unavailable";
 
   return (
-    <aside className="flex flex-col gap-4">
+    <aside className="flex flex-col gap-5">
       <Section title="Quality" disabled={disabled}>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4">
           <Field label="Resolution">
             <select
               className={control}
@@ -174,9 +174,9 @@ export function SettingsPanel({
                 }
               />
             </Field>
-            <div className="flex flex-col gap-1.5 text-sm text-zinc-700 dark:text-zinc-300">
+            <div className="flex flex-col gap-2 text-base text-zinc-700 dark:text-zinc-300">
               Input level
-              <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+              <div className="h-3 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
                 <div
                   className="h-full rounded-full bg-emerald-500 transition-[width] duration-75"
                   style={{ width: `${Math.min(1, micLevel) * 100}%` }}
@@ -199,7 +199,7 @@ export function SettingsPanel({
             onChange={(event) => update({ systemAudio: { gain: Number(event.target.value) } })}
           />
         </Field>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="text-base leading-relaxed text-zinc-500 dark:text-zinc-400">
           Only recorded when the source you share includes audio — for example a
           Chrome tab with &quot;Also share tab audio&quot; turned on.
         </p>
@@ -220,7 +220,7 @@ export function SettingsPanel({
                   type="button"
                   aria-pressed={settings.webcam.corner === value}
                   onClick={() => update({ webcam: { ...settings.webcam, corner: value } })}
-                  className={`rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ${
+                  className={`rounded-xl border px-3 py-2.5 text-base font-medium transition-colors ${
                     settings.webcam.corner === value
                       ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"
                       : "border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
@@ -260,19 +260,19 @@ export function SettingsPanel({
               <button
                 type="button"
                 onClick={captionModel.install}
-                className="self-start rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+                className="self-start rounded-full bg-zinc-900 px-5 py-2.5 text-base font-semibold text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
               >
                 Set up English captions
               </button>
             )}
             {!settings.mic.enabled && (
-              <p className="text-xs text-amber-700 dark:text-amber-400">
+              <p className="text-base text-amber-700 dark:text-amber-400">
                 Turn on the microphone — captions come from your voice.
               </p>
             )}
           </>
         )}
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="text-base leading-relaxed text-zinc-500 dark:text-zinc-400">
           {captionStatusText(captionModel)}
         </p>
       </Section>

@@ -42,7 +42,7 @@ export function RecorderPreview({
   const isActive = status === "recording" || status === "paused";
 
   return (
-    <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-zinc-900 shadow-sm ring-1 ring-zinc-900/5 dark:ring-white/10">
+    <div className="relative aspect-video w-full overflow-hidden rounded-3xl bg-zinc-900 shadow-sm ring-1 ring-zinc-900/5 dark:ring-white/10">
       <video
         ref={liveVideoRef}
         muted
@@ -60,16 +60,16 @@ export function RecorderPreview({
       )}
 
       {!showLive && !showPlayback && (
-        <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-zinc-400">
-          <span className="h-3 w-3 rounded-full bg-red-500" aria-hidden="true" />
-          <p className="text-sm">Your live preview appears here once you start.</p>
+        <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-zinc-400">
+          <span className="h-4 w-4 rounded-full bg-red-500" aria-hidden="true" />
+          <p className="text-lg">Your live preview appears here once you start.</p>
         </div>
       )}
 
       {showLive && isActive && (
-        <div className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-sm font-medium text-white">
+        <div className="absolute left-4 top-4 flex items-center gap-2.5 rounded-full bg-black/70 px-4 py-2 text-base font-medium text-white">
           <span
-            className={`h-2.5 w-2.5 rounded-full bg-red-500 ${status === "recording" ? "animate-pulse" : ""}`}
+            className={`h-3 w-3 rounded-full bg-red-500 ${status === "recording" ? "animate-pulse" : ""}`}
             aria-hidden="true"
           />
           <span>{status === "paused" ? "Paused" : "Recording"}</span>
@@ -79,7 +79,7 @@ export function RecorderPreview({
 
       {countdownValue !== null && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-          <span className="text-8xl font-bold text-white">{countdownValue}</span>
+          <span className="text-9xl font-bold text-white">{countdownValue}</span>
         </div>
       )}
     </div>

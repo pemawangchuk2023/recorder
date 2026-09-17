@@ -74,12 +74,12 @@ export function Recorder() {
   };
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-      <div className="flex min-w-0 flex-col gap-4">
+    <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="flex min-w-0 flex-col gap-5">
         {!isSupported && (
           <p
             role="alert"
-            className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+            className="rounded-2xl border border-red-300 bg-red-50 px-5 py-4 text-base text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
           >
             Screen recording isn&apos;t supported in this browser. Please use an
             up-to-date Chrome or Edge on desktop.

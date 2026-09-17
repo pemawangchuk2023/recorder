@@ -13,7 +13,7 @@ interface RecorderControlsProps {
 }
 
 const button =
-  "rounded-full px-5 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
+  "rounded-full px-6 py-3 text-base font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
 const secondary = `${button} bg-white text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700 dark:hover:bg-zinc-800`;
 
 export function RecorderControls({
@@ -30,8 +30,8 @@ export function RecorderControls({
   const canStop = isCountingDown || status === "recording" || status === "paused";
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-2">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap gap-3">
         <button
           type="button"
           onClick={onStart}
@@ -65,7 +65,7 @@ export function RecorderControls({
           Stop
         </button>
       </div>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+      <p className="text-base text-zinc-500 dark:text-zinc-400">
         Shortcuts: <kbd className="font-mono">Ctrl+Shift+P</kbd> pause/resume ·{" "}
         <kbd className="font-mono">Ctrl+Shift+R</kbd> start/stop (some browsers
         reserve this one for reload).

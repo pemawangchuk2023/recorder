@@ -2,9 +2,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 const primaryButton =
-  "inline-flex items-center justify-center gap-2 rounded-full bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600";
+  "inline-flex items-center justify-center gap-2.5 rounded-full bg-red-600 px-7 py-3.5 text-base font-semibold text-white shadow-sm transition-colors hover:bg-red-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600";
 const secondaryButton =
-  "inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold text-zinc-900 ring-1 ring-zinc-300 transition-colors hover:bg-zinc-100 dark:text-zinc-100 dark:ring-zinc-700 dark:hover:bg-zinc-900";
+  "inline-flex items-center justify-center rounded-full px-7 py-3.5 text-base font-semibold text-zinc-900 ring-1 ring-zinc-300 transition-colors hover:bg-zinc-100 dark:text-zinc-100 dark:ring-zinc-700 dark:hover:bg-zinc-900";
 
 function Icon({ children }: { children: ReactNode }) {
   return (
@@ -15,7 +15,7 @@ function Icon({ children }: { children: ReactNode }) {
       strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="h-5 w-5"
+      className="h-6 w-6"
       aria-hidden="true"
     >
       {children}
@@ -131,20 +131,20 @@ function ProductPreview() {
           </div>
         </div>
 
-        <div className="absolute left-4 top-4 flex items-center gap-1.5 rounded-full bg-black/75 px-2.5 py-1 text-[11px] font-semibold text-white">
+        <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-black/75 px-3 py-1 text-xs font-semibold text-white sm:text-sm">
           <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
           REC 02:14
         </div>
 
-        <div className="absolute bottom-5 left-4 right-24 flex justify-center sm:right-28">
-          <p className="rounded-md bg-black/75 px-3 py-1.5 text-center text-[11px] font-semibold text-white sm:text-xs">
+        <div className="absolute bottom-5 left-4 right-24 flex justify-center sm:right-32">
+          <p className="rounded-md bg-black/75 px-3 py-1.5 text-center text-xs font-semibold text-white sm:text-sm">
             …and everything stays on your computer.
           </p>
         </div>
 
-        <div className="absolute bottom-4 right-4 h-16 w-16 overflow-hidden rounded-full bg-linear-to-br from-amber-200 to-rose-300 shadow-lg ring-2 ring-white sm:h-20 sm:w-20">
-          <div className="mx-auto mt-3 h-6 w-6 rounded-full bg-rose-900/40 sm:mt-4 sm:h-7 sm:w-7" />
-          <div className="mx-auto mt-1 h-10 w-12 rounded-t-full bg-rose-900/40 sm:w-14" />
+        <div className="absolute bottom-4 right-4 h-16 w-16 overflow-hidden rounded-full bg-linear-to-br from-amber-200 to-rose-300 shadow-lg ring-2 ring-white sm:h-24 sm:w-24">
+          <div className="mx-auto mt-3 h-6 w-6 rounded-full bg-rose-900/40 sm:mt-5 sm:h-8 sm:w-8" />
+          <div className="mx-auto mt-1 h-10 w-12 rounded-t-full bg-rose-900/40 sm:w-16" />
         </div>
       </div>
     </div>
@@ -154,28 +154,28 @@ function ProductPreview() {
 export default function HomePage() {
   return (
     <>
-      <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-2">
-        <div className="flex flex-col items-start gap-6">
-          <p className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-300 dark:ring-red-900">
+      <section className="mx-auto grid w-full max-w-7xl items-center gap-14 px-5 py-20 sm:px-8 sm:py-28 lg:grid-cols-2">
+        <div className="flex flex-col items-start gap-7">
+          <p className="rounded-full bg-red-50 px-4 py-1.5 text-sm font-semibold text-red-700 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-300 dark:ring-red-900">
             No account · No uploads · No install
           </p>
-          <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+          <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl lg:text-6xl">
             Record your screen. Keep it on your computer.
           </h1>
-          <p className="max-w-xl text-lg text-pretty text-zinc-600 dark:text-zinc-400">
+          <p className="max-w-xl text-xl leading-relaxed text-pretty text-zinc-600 dark:text-zinc-400">
             Capture your screen, voice and webcam as a sharp MP4 with live
             English captions — right in your browser. Nothing is ever uploaded.
           </p>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-4">
             <Link href="/recorder" className={primaryButton}>
-              <span className="h-2 w-2 rounded-full bg-white" aria-hidden="true" />
+              <span className="h-2.5 w-2.5 rounded-full bg-white" aria-hidden="true" />
               Start recording
             </Link>
             <a href="#how-it-works" className={secondaryButton}>
               How it works
             </a>
           </div>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="text-base text-zinc-500 dark:text-zinc-400">
             Works in Chrome and Edge on desktop.
           </p>
         </div>
@@ -183,50 +183,54 @@ export default function HomePage() {
       </section>
 
       <section className="border-y border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/40">
-        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+        <div className="mx-auto w-full max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             Everything a good screen recording needs
           </h2>
-          <ul className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((feature) => (
               <li
                 key={feature.title}
-                className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-800 dark:bg-zinc-950"
+                className="flex flex-col gap-4 rounded-3xl border border-zinc-200 bg-zinc-50 p-8 dark:border-zinc-800 dark:bg-zinc-950"
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-600 text-white">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-600 text-white">
                   {feature.icon}
                 </span>
-                <h3 className="font-semibold">{feature.title}</h3>
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">{feature.description}</p>
+                <h3 className="text-xl font-semibold">{feature.title}</h3>
+                <p className="text-base leading-relaxed text-zinc-600 dark:text-zinc-400">
+                  {feature.description}
+                </p>
               </li>
             ))}
           </ul>
         </div>
       </section>
 
-      <section id="how-it-works" className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6 sm:py-20">
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">How it works</h2>
-        <ol className="mt-10 grid gap-6 sm:grid-cols-3">
+      <section id="how-it-works" className="mx-auto w-full max-w-7xl scroll-mt-20 px-5 py-20 sm:px-8 sm:py-28">
+        <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">How it works</h2>
+        <ol className="mt-12 grid gap-10 sm:grid-cols-3">
           {steps.map((step, index) => (
-            <li key={step.title} className="flex flex-col gap-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900">
+            <li key={step.title} className="flex flex-col gap-4">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-900 text-lg font-semibold text-white dark:bg-white dark:text-zinc-900">
                 {index + 1}
               </span>
-              <h3 className="font-semibold">{step.title}</h3>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">{step.description}</p>
+              <h3 className="text-xl font-semibold">{step.title}</h3>
+              <p className="text-base leading-relaxed text-zinc-600 dark:text-zinc-400">
+                {step.description}
+              </p>
             </li>
           ))}
         </ol>
 
-        <div className="mt-16 flex flex-col items-start justify-between gap-6 rounded-3xl bg-zinc-900 p-8 text-white sm:flex-row sm:items-center sm:p-10 dark:bg-zinc-900 dark:ring-1 dark:ring-zinc-800">
+        <div className="mt-20 flex flex-col items-start justify-between gap-8 rounded-3xl bg-zinc-900 p-10 text-white sm:flex-row sm:items-center sm:p-14 dark:bg-zinc-900 dark:ring-1 dark:ring-zinc-800">
           <div>
-            <h2 className="text-2xl font-semibold tracking-tight">Ready when you are</h2>
-            <p className="mt-2 text-zinc-400">
+            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Ready when you are</h2>
+            <p className="mt-3 text-lg text-zinc-400">
               Open the recorder — your first recording takes less than a minute.
             </p>
           </div>
           <Link href="/recorder" className={primaryButton}>
-            <span className="h-2 w-2 rounded-full bg-white" aria-hidden="true" />
+            <span className="h-2.5 w-2.5 rounded-full bg-white" aria-hidden="true" />
             Start recording
           </Link>
         </div>
