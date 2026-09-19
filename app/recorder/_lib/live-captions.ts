@@ -1,3 +1,5 @@
+import type { TranscriptSegment } from "@/app/recorder/_lib/types";
+
 const ENGLISH_ON_DEVICE: SpeechRecognitionOptions = {
   langs: ["en-US"],
   processLocally: true,
@@ -44,8 +46,13 @@ export interface LiveCaptioner {
 }
 
 interface LiveCaptionHandlers {
+  // The words to show on screen right now ("" clears the caption).
   onText: (text: string) => void;
+  // A finished line for the transcript.
+  onSegment: (segment: TranscriptSegment) => void;
   onError: (message: string) => void;
+  // Current position in the recording, in seconds (pauses excluded).
+  now: () => number;
 }
 
 function describeRecognitionError(code: string): string | null {
@@ -67,7 +74,7 @@ function describeRecognitionError(code: string): string | null {
 
 export function startLiveCaptions(
   micTrack: MediaStreamTrack,
-  { onText, onError }: LiveCaptionHandlers
+  { onText, onSegment, onError, now }: LiveCaptionHandlers
 ): LiveCaptioner {
   let active = true;
   let paused = false;
@@ -99,10 +106,26 @@ export function startLiveCaptions(
       instance.unspokenPunctuation = true;
     }
 
+    // The API doesn't time its results, so a line is timed from when its
+    // first words appeared until it was finalized.
+    const firstHeardAt: number[] = [];
+    let finishedCount = 0;
+
     instance.onresult = (event) => {
       if (recognition !== instance) {
         return;
       }
+      for (let index = event.resultIndex; index < event.results.length; index++) {
+        firstHeardAt[index] ??= now();
+      }
+      while (finishedCount < event.results.length && event.results[finishedCount].isFinal) {
+        const text = event.results[finishedCount][0]?.transcript.trim();
+        if (text) {
+          onSegment({ start: firstHeardAt[finishedCount] ?? now(), end: now(), text });
+        }
+        finishedCount++;
+      }
+
       const words = Array.from(
         event.results,
         (result) => result[0]?.transcript ?? ""

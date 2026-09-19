@@ -1,5 +1,5 @@
 export interface AudioMixer {
-  outputTrack: MediaStreamTrack | null;
+  outputTrack: MediaStreamAudioTrack | null;
   micAnalyser: AnalyserNode | null;
   setMicGain: (value: number) => void;
   setSystemAudioGain: (value: number) => void;

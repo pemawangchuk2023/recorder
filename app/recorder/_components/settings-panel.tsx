@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { CaptionModel } from "@/app/recorder/_hooks/use-caption-model";
 import type { MediaDevice } from "@/app/recorder/_hooks/use-devices";
+import { VIDEO_CODECS } from "@/constants/recorder";
 import type {
   BubbleCorner,
   BubbleSize,
@@ -10,6 +11,7 @@ import type {
   RecorderSettings,
   RecordingSource,
   Resolution,
+  VideoCodecChoice,
 } from "@/app/recorder/_lib/types";
 
 interface SettingsPanelProps {
@@ -28,6 +30,8 @@ interface SettingsPanelProps {
   onDeviceListOpen: () => void;
   captionModel: CaptionModel;
   onCaptionsToggle: (enabled: boolean) => void;
+  // Codecs this computer can record; a choice is shown when there's more than one.
+  codecs: VideoCodecChoice[];
 }
 
 const SOURCES: { value: RecordingSource; label: string }[] = [
@@ -163,6 +167,7 @@ export function SettingsPanel({
   onDeviceListOpen,
   captionModel,
   onCaptionsToggle,
+  codecs,
 }: SettingsPanelProps) {
   const update = (patch: Partial<RecorderSettings>) => onChange({ ...settings, ...patch });
   const recordsScreen = settings.source === "screen";
@@ -299,13 +304,22 @@ export function SettingsPanel({
 
       <Section title="Captions" disabled={disabled}>
         <Toggle
-          label="Show live English captions in the video"
+          label="Live English captions and transcript"
           checked={settings.captions.enabled && !captionsImpossible}
           disabled={captionsImpossible}
           onChange={onCaptionsToggle}
         />
         {settings.captions.enabled && !captionsImpossible && (
           <>
+            <Toggle
+              label="Also show captions inside the video"
+              checked={settings.captions.burnIn}
+              onChange={(burnIn) => update({ captions: { ...settings.captions, burnIn } })}
+            />
+            <p className={hint}>
+              After recording you can read the transcript, jump to any line, and
+              download a .srt caption file for YouTube or your video editor.
+            </p>
             {(captionModel.status === "downloadable" || captionModel.installFailed) && (
               <button
                 type="button"
@@ -368,6 +382,25 @@ export function SettingsPanel({
             </select>
           </Field>
         </div>
+        {codecs.length > 1 && (
+          <div className="flex flex-col gap-2">
+            <p className="text-base text-zinc-700 dark:text-zinc-300">File type</p>
+            <div className="grid grid-cols-2 gap-2">
+              {codecs.map((codec) => (
+                <button
+                  key={codec}
+                  type="button"
+                  aria-pressed={settings.codec === codec}
+                  onClick={() => update({ codec })}
+                  className={choiceClass(settings.codec === codec)}
+                >
+                  {VIDEO_CODECS[codec].label}
+                </button>
+              ))}
+            </div>
+            <p className={hint}>{VIDEO_CODECS[settings.codec].description}</p>
+          </div>
+        )}
       </Section>
     </aside>
   );

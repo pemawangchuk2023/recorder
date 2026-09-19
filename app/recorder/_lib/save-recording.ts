@@ -1,12 +1,12 @@
 export type SaveResult = "saved" | "downloaded" | "cancelled";
 
-function defaultFilename(date: Date): string {
+export function recordingFilename(date: Date, extension: string): string {
   const pad = (value: number) => value.toString().padStart(2, "0");
   const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-  return `recording-${day}-${pad(date.getHours())}${pad(date.getMinutes())}.mp4`;
+  return `recording-${day}-${pad(date.getHours())}${pad(date.getMinutes())}.${extension}`;
 }
 
-function download(blob: Blob, filename: string): void {
+export function downloadFile(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -17,9 +17,7 @@ function download(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-export async function saveRecording(blob: Blob): Promise<SaveResult> {
-  const filename = defaultFilename(new Date());
-
+export async function saveRecording(blob: Blob, filename: string): Promise<SaveResult> {
   if (typeof window.showSaveFilePicker === "function") {
     try {
       const handle = await window.showSaveFilePicker({
@@ -38,6 +36,22 @@ export async function saveRecording(blob: Blob): Promise<SaveResult> {
     }
   }
 
-  download(blob, filename);
+  downloadFile(blob, filename);
   return "downloaded";
+}
+
+// Hands the file to the system share sheet (Mail, Messages, AirDrop, Nearby
+// Share…) — it still never touches a server of ours.
+export function canShareFile(file: File): boolean {
+  return typeof navigator.canShare === "function" && navigator.canShare({ files: [file] });
+}
+
+export async function shareFile(file: File): Promise<boolean> {
+  try {
+    await navigator.share({ files: [file], title: file.name });
+    return true;
+  } catch {
+    // Cancelled from the share sheet, or the target app refused the file.
+    return false;
+  }
 }

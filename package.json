@@ -9,12 +9,14 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "mediabunny": "^1.58.1",
     "next": "16.3.5",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/dom-mediacapture-transform": "^0.1.12",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

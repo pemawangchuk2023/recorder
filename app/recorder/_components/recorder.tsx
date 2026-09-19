@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { FloatingBubble } from "@/app/recorder/_components/floating-bubble";
 import { Notices } from "@/app/recorder/_components/notices";
 import { RecorderControls } from "@/app/recorder/_components/recorder-controls";
 import { RecorderPreview } from "@/app/recorder/_components/recorder-preview";
-import { SavePanel } from "@/app/recorder/_components/save-panel";
+import { ReviewPanel } from "@/app/recorder/_components/review-panel";
 import { SettingsPanel } from "@/app/recorder/_components/settings-panel";
 import { useAudioLevel } from "@/app/recorder/_hooks/use-audio-level";
 import { useCamera } from "@/app/recorder/_hooks/use-camera";
 import { useCaptionModel } from "@/app/recorder/_hooks/use-caption-model";
 import { useDevices } from "@/app/recorder/_hooks/use-devices";
+import { useEncodableCodecs, useEncoderWarmUp } from "@/app/recorder/_hooks/use-encoder";
 import {
   isFloatingBubbleSupported,
   useFloatingBubble,
@@ -22,17 +23,31 @@ import {
   isRecordingSupported,
   isScreenCaptureSupported,
 } from "@/app/recorder/_lib/recording-format";
-import type { RecorderSettings, RecordingSource } from "@/app/recorder/_lib/types";
+import type {
+  RecorderSettings,
+  RecordingSource,
+  TranscriptSegment,
+} from "@/app/recorder/_lib/types";
 
 const DEFAULT_SETTINGS: RecorderSettings = {
   source: "screen",
   resolution: "1080p",
   frameRate: 30,
+  codec: "avc",
   mic: { enabled: true, gain: 1 },
   systemAudio: { gain: 1 },
   camera: { enabled: false, corner: "bottom-right", size: "medium" },
-  captions: { enabled: true },
+  captions: { enabled: true, burnIn: true },
 };
+
+// A trimmed version of a finished recording, tied to the recording it came from.
+interface EditedRecording {
+  source: Blob;
+  blob: Blob;
+  transcript: TranscriptSegment[];
+}
+
+type ConfirmAction = { kind: "restart" | "discard"; resumeOnCancel: boolean };
 
 // Browser features can only be checked on the client. The server snapshot is
 // what's rendered into the HTML; React switches to the real value after hydration.
@@ -57,19 +72,67 @@ export function Recorder() {
   const bubble = useFloatingBubble();
   const captionModel = useCaptionModel();
   const micLevel = useAudioLevel(recorder.micAnalyser);
-  const playbackUrl = useObjectUrl(recorder.blob);
+  const codecs = useEncodableCodecs(settings.resolution, settings.frameRate);
+  useEncoderWarmUp(settings.codec, settings.resolution);
+
+  const playbackRef = useRef<HTMLVideoElement>(null);
+  const [edited, setEdited] = useState<EditedRecording | null>(null);
+  const recording = recorder.blob
+    ? edited?.source === recorder.blob
+      ? edited
+      : { source: recorder.blob, blob: recorder.blob, transcript: recorder.transcript }
+    : null;
+  const playbackUrl = useObjectUrl(recording?.blob ?? null);
 
   const isIdle =
     !recorder.isCountingDown &&
     (recorder.status === "idle" || recorder.status === "stopped");
+  const isActive = recorder.status === "recording" || recorder.status === "paused";
 
-  const startRecording = () =>
+  // Restart and Discard pause the recording while asking, like Loom. A
+  // blocking confirm() would freeze the video capture instead.
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const confirming = isActive ? confirmAction : null;
+  const askToConfirm = (kind: ConfirmAction["kind"]) => {
+    const resumeOnCancel = recorder.status === "recording";
+    recorder.pause();
+    setConfirmAction({ kind, resumeOnCancel });
+  };
+  const handleConfirm = () => {
+    if (confirming?.kind === "restart") {
+      recorder.restart();
+    } else if (confirming?.kind === "discard") {
+      recorder.discard();
+    }
+    setConfirmAction(null);
+  };
+  const handleCancelConfirm = () => {
+    if (confirming?.resumeOnCancel) {
+      recorder.resume();
+    }
+    setConfirmAction(null);
+  };
+  // Nothing is recorded yet during the countdown, so there's nothing to confirm.
+  const handleDiscard = () => (isActive ? askToConfirm("discard") : recorder.discard());
+
+  const startRecording = () => {
+    setEdited(null);
+    setConfirmAction(null);
     void recorder.start(settings, {
       cameraStream: camera.stream,
       floatingBubbleOpen: bubble.pipWindow !== null,
     });
-  const togglePause = () =>
-    recorder.status === "paused" ? recorder.resume() : recorder.pause();
+  };
+  const togglePause = () => {
+    if (confirming) {
+      return;
+    }
+    if (recorder.status === "paused") {
+      recorder.resume();
+    } else {
+      recorder.pause();
+    }
+  };
 
   useKeyboardShortcuts({
     enabled: isSupported,
@@ -110,7 +173,7 @@ export function Recorder() {
   };
 
   const handleCaptionsToggle = (enabled: boolean) => {
-    setSettings((prev) => ({ ...prev, captions: { enabled } }));
+    setSettings((prev) => ({ ...prev, captions: { ...prev.captions, enabled } }));
     if (enabled) {
       captionModel.install();
     }
@@ -134,20 +197,38 @@ export function Recorder() {
           previewStream={recorder.previewStream}
           idleStream={settings.source === "camera" ? camera.stream : null}
           countdownValue={recorder.countdownValue}
+          isFinishing={recorder.isFinishing}
           elapsedSeconds={recorder.elapsedSeconds}
           playbackUrl={playbackUrl}
+          playbackRef={playbackRef}
         />
         <RecorderControls
           status={recorder.status}
           isCountingDown={recorder.isCountingDown}
+          isFinishing={recorder.isFinishing}
           disabled={!isSupported}
           onStart={startRecording}
           onPause={recorder.pause}
           onResume={recorder.resume}
           onStop={recorder.stop}
+          onRestart={() => askToConfirm("restart")}
+          onDiscard={handleDiscard}
+          confirming={confirming?.kind ?? null}
+          onConfirm={handleConfirm}
+          onCancelConfirm={handleCancelConfirm}
         />
-        {recorder.status === "stopped" && recorder.blob && (
-          <SavePanel blob={recorder.blob} />
+        {recorder.status === "stopped" && recording && (
+          <ReviewPanel
+            key={playbackUrl}
+            blob={recording.blob}
+            transcript={recording.transcript}
+            isTrimmed={recording.blob !== recording.source}
+            playbackRef={playbackRef}
+            onTrimmed={(blob, transcript) =>
+              setEdited({ source: recording.source, blob, transcript })
+            }
+            onUndoTrim={() => setEdited(null)}
+          />
         )}
       </div>
 
@@ -174,6 +255,7 @@ export function Recorder() {
         }
         captionModel={captionModel}
         onCaptionsToggle={handleCaptionsToggle}
+        codecs={codecs}
       />
 
       {bubble.pipWindow && (

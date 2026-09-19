@@ -10,13 +10,21 @@ import {
   startLiveCaptions,
   type LiveCaptioner,
 } from "@/app/recorder/_lib/live-captions";
+import { warmUpEncoder } from "@/app/recorder/_lib/mp4-encoder";
 import {
-  AUDIO_BITRATE,
   RESOLUTIONS,
-  getMp4MimeType,
-  videoBitrate,
+  canUseWebCodecs,
+  isRecordingSupported,
 } from "@/app/recorder/_lib/recording-format";
-import type { RecorderSettings, RecorderStatus } from "@/app/recorder/_lib/types";
+import {
+  createRecordingSession,
+  type RecordingSession,
+} from "@/app/recorder/_lib/recording-session";
+import type {
+  RecorderSettings,
+  RecorderStatus,
+  TranscriptSegment,
+} from "@/app/recorder/_lib/types";
 import {
   createVideoCompositor,
   isVideoCompositorSupported,
@@ -24,7 +32,6 @@ import {
 } from "@/app/recorder/_lib/video-compositor";
 
 const COUNTDOWN_SECONDS = 3;
-const TIMESLICE_MS = 1000;
 
 const VOICE_PROCESSING: MediaTrackConstraints = {
   echoCancellation: true,
@@ -64,12 +71,27 @@ export interface StartOptions {
   floatingBubbleOpen: boolean;
 }
 
+// Everything a take records from. Kept so Restart can record a fresh take
+// from the same screen share, camera and microphone without asking again.
+interface TakeSetup {
+  settings: RecorderSettings;
+  videoTrack: MediaStreamVideoTrack;
+  audioTrack: MediaStreamAudioTrack | null;
+  compositor: VideoCompositor | null;
+  // The microphone, when captions are ready to transcribe it.
+  captionTrack: MediaStreamTrack | null;
+  useWebCodecs: boolean;
+}
+
 export interface ScreenRecorder {
   status: RecorderStatus;
   isCountingDown: boolean;
   countdownValue: number | null;
+  // True while the last frames are encoded after Stop.
+  isFinishing: boolean;
   elapsedSeconds: number;
   blob: Blob | null;
+  transcript: TranscriptSegment[];
   error: string | null;
   notices: string[];
   previewStream: MediaStream | null;
@@ -78,14 +100,18 @@ export interface ScreenRecorder {
   stop: () => void;
   pause: () => void;
   resume: () => void;
+  restart: () => void;
+  discard: () => void;
   setMicGain: (value: number) => void;
   setSystemAudioGain: (value: number) => void;
 }
 
 export function useScreenRecorder(): ScreenRecorder {
   const [status, setStatus] = useState<RecorderStatus>("idle");
+  const [isFinishing, setIsFinishing] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [blob, setBlob] = useState<Blob | null>(null);
+  const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notices, setNotices] = useState<string[]>([]);
   const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
@@ -96,8 +122,8 @@ export function useScreenRecorder(): ScreenRecorder {
   // True from start() until cleanup. status stays "idle" through permission
   // prompts and the countdown, so this is what blocks a second start().
   const busyRef = useRef(false);
-  // Set when stop() or unmount happens while start() is still awaiting a
-  // permission prompt or the countdown; start() checks it after every await.
+  // Set when stop(), discard() or unmount happens while a take is still being
+  // set up; every await in start() and beginTake() checks it.
   const startAbortedRef = useRef(false);
 
   const displayStreamRef = useRef<MediaStream | null>(null);
@@ -106,10 +132,13 @@ export function useScreenRecorder(): ScreenRecorder {
   const audioMixerRef = useRef<AudioMixer | null>(null);
   const compositorRef = useRef<VideoCompositor | null>(null);
   const captionerRef = useRef<LiveCaptioner | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const takeSetupRef = useRef<TakeSetup | null>(null);
+  const sessionRef = useRef<RecordingSession | null>(null);
+  const finishingRef = useRef(false);
+  const transcriptRef = useRef<TranscriptSegment[]>([]);
 
-  // Active recording time, excluding pauses.
+  // Active recording time, excluding pauses. segmentStartRef is null while
+  // paused (or not recording).
   const activeMsRef = useRef(0);
   const segmentStartRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -143,16 +172,31 @@ export function useScreenRecorder(): ScreenRecorder {
     }
   }, []);
 
+  const resetTakeTime = useCallback(() => {
+    stopTimer();
+    activeMsRef.current = 0;
+    segmentStartRef.current = null;
+    setElapsedSeconds(0);
+    transcriptRef.current = [];
+  }, [stopTimer]);
+
+  const addNotice = useCallback((message: string) => {
+    setNotices((previous) => (previous.includes(message) ? previous : [...previous, message]));
+  }, []);
+
   const cancelCountdown = useCallback(() => {
     countdown.cancel();
     countdownResolverRef.current?.();
     countdownResolverRef.current = null;
   }, [countdown]);
 
+  // Releases the screen, camera, microphone and everything built on them.
+  // Any session must already be finished or cancelled.
   const cleanup = useCallback(() => {
     stopTimer();
     segmentStartRef.current = null;
-    mediaRecorderRef.current = null;
+    takeSetupRef.current = null;
+    sessionRef.current = null;
 
     captionerRef.current?.stop();
     captionerRef.current = null;
@@ -174,22 +218,45 @@ export function useScreenRecorder(): ScreenRecorder {
     busyRef.current = false;
   }, [stopTimer]);
 
-  // Returns true when a real recording was stopped (onstop will follow).
-  const finishRecording = useCallback((): boolean => {
-    const recorder = mediaRecorderRef.current;
-    if (!recorder || recorder.state === "inactive") {
-      return false;
+  // Stops encoding and keeps the take.
+  const finishTake = useCallback(async () => {
+    const session = sessionRef.current;
+    if (!session || finishingRef.current) {
+      return;
     }
+    finishingRef.current = true;
+    setIsFinishing(true);
     stopTimer();
     endSegment();
-    recorder.stop();
-    return true;
-  }, [endSegment, stopTimer]);
+    captionerRef.current?.stop();
+    captionerRef.current = null;
+    try {
+      const recorded = await session.finish();
+      setBlob(recorded);
+      setTranscript([...transcriptRef.current]);
+      setStatus("stopped");
+    } catch {
+      setError("The recording couldn't be finished. Please try again.");
+      setStatus("idle");
+    } finally {
+      finishingRef.current = false;
+      setIsFinishing(false);
+      cleanup();
+    }
+  }, [cleanup, endSegment, stopTimer]);
+
+  const stop = useCallback(() => {
+    startAbortedRef.current = true;
+    cancelCountdown();
+    // If a take hadn't begun yet, the pending start sees the abort flag and cleans up.
+    void finishTake();
+  }, [cancelCountdown, finishTake]);
 
   useEffect(() => {
     return () => {
       startAbortedRef.current = true;
       cancelCountdown();
+      void sessionRef.current?.cancel();
       cleanup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -207,10 +274,91 @@ export function useScreenRecorder(): ScreenRecorder {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [getActiveMs]);
 
+  // Counts down, then starts encoding a new take.
+  const beginTake = useCallback(
+    async (setup: TakeSetup) => {
+      const abort = () => {
+        cleanup();
+        setStatus("idle");
+      };
+      const { settings, compositor } = setup;
+
+      await new Promise<void>((resolve) => {
+        countdownResolverRef.current = resolve;
+        countdown.start(resolve);
+      });
+      countdownResolverRef.current = null;
+      if (startAbortedRef.current) {
+        return abort();
+      }
+
+      if (setup.useWebCodecs) {
+        // Normally finished long ago; see warmUpEncoder.
+        const { width, height } = RESOLUTIONS[settings.resolution];
+        await warmUpEncoder(settings.codec, width, height);
+      }
+
+      let session: RecordingSession | null = null;
+      try {
+        const created = await createRecordingSession({
+          videoTrack: setup.videoTrack,
+          audioTrack: setup.audioTrack,
+          codec: settings.codec,
+          resolution: settings.resolution,
+          frameRate: settings.frameRate,
+          compositedSize:
+            setup.useWebCodecs && compositor
+              ? { width: compositor.width, height: compositor.height }
+              : null,
+          // Only this take's own failure may end it, not a cancelled earlier one.
+          onError: () => {
+            if (session && sessionRef.current === session) {
+              setError("Recording failed unexpectedly and had to stop.");
+              void finishTake();
+            }
+          },
+        });
+        session = created.session;
+        if (created.notice) {
+          addNotice(created.notice);
+        }
+        if (!startAbortedRef.current) {
+          await session.start();
+        }
+      } catch {
+        abort();
+        setError("The recording couldn't be started. Please try again.");
+        return;
+      }
+      if (startAbortedRef.current) {
+        void session.cancel();
+        return abort();
+      }
+
+      sessionRef.current = session;
+      segmentStartRef.current = performance.now();
+      setStatus("recording");
+      startTimer();
+
+      if (setup.captionTrack) {
+        captionerRef.current = startLiveCaptions(setup.captionTrack, {
+          onText: (text) => {
+            if (settings.captions.burnIn) {
+              compositor?.setCaption(text);
+            }
+          },
+          onSegment: (segment) => transcriptRef.current.push(segment),
+          onError: addNotice,
+          now: () => getActiveMs() / 1000,
+        });
+      }
+    },
+    [addNotice, cleanup, countdown, finishTake, getActiveMs, startTimer]
+  );
+
   const start = useCallback(
     async (settings: RecorderSettings, { cameraStream, floatingBubbleOpen }: StartOptions) => {
-      const mimeType = getMp4MimeType();
-      if (!mimeType) {
+      if (!isRecordingSupported()) {
         setError("Recording isn't supported in this browser. Use an up-to-date Chrome or Edge.");
         return;
       }
@@ -229,23 +377,20 @@ export function useScreenRecorder(): ScreenRecorder {
 
       setError(null);
       setBlob(null);
+      setTranscript([]);
       setNotices([]);
-      setElapsedSeconds(0);
-      chunksRef.current = [];
-      activeMsRef.current = 0;
-      segmentStartRef.current = null;
+      resetTakeTime();
       startAbortedRef.current = false;
 
       const { width, height } = RESOLUTIONS[settings.resolution];
+      const useWebCodecs = canUseWebCodecs();
+      if (useWebCodecs) {
+        void warmUpEncoder(settings.codec, width, height);
+      }
       const newNotices: string[] = [];
       const abort = () => {
         cleanup();
         setStatus("idle");
-      };
-      const onSourceEnded = () => {
-        startAbortedRef.current = true;
-        cancelCountdown();
-        finishRecording();
       };
 
       // The recorder works on its own copy of the camera track, so stopping a
@@ -253,13 +398,13 @@ export function useScreenRecorder(): ScreenRecorder {
       const cameraTrack = liveCameraTrack?.clone() ?? null;
       cameraTrackRef.current = cameraTrack;
 
-      let mainVideoTrack: MediaStreamTrack;
+      let mainVideoTrack: MediaStreamVideoTrack;
       let systemAudioTrack: MediaStreamTrack | null = null;
       let sharesFullScreen = false;
 
       if (recordsCamera && cameraTrack) {
         mainVideoTrack = cameraTrack;
-        cameraTrack.onended = onSourceEnded;
+        cameraTrack.onended = stop;
       } else {
         let displayStream: MediaStream;
         try {
@@ -293,7 +438,7 @@ export function useScreenRecorder(): ScreenRecorder {
         // "detail" keeps text sharp; "motion" keeps 60 fps smooth.
         videoTrack.contentHint = settings.frameRate === 60 ? "motion" : "detail";
         // Fires when the user clicks the browser's own "Stop sharing" button.
-        videoTrack.onended = onSourceEnded;
+        videoTrack.onended = stop;
         mainVideoTrack = videoTrack;
         systemAudioTrack = displayStream.getAudioTracks()[0] ?? null;
         sharesFullScreen = videoTrack.getSettings().displaySurface === "monitor";
@@ -313,12 +458,11 @@ export function useScreenRecorder(): ScreenRecorder {
       }
 
       const micTrack = micStream?.getAudioTracks()[0] ?? null;
+      const { burnIn } = settings.captions;
       let captionsReady = false;
       if (settings.captions.enabled) {
         if (!micTrack) {
           newNotices.push("Captions need the microphone — recording without captions.");
-        } else if (!isVideoCompositorSupported()) {
-          newNotices.push("This browser can't draw captions into the video — recording without captions.");
         } else {
           const modelStatus = await getEnglishModelStatus();
           if (startAbortedRef.current) {
@@ -343,12 +487,12 @@ export function useScreenRecorder(): ScreenRecorder {
       if (!recordsCamera && cameraTrack && !drawsBubble) {
         cameraTrack.stop();
       }
-      if (drawsBubble && !isVideoCompositorSupported()) {
-        newNotices.push("This browser can't draw the camera bubble into the video — recording the screen only.");
-      }
 
+      // WebCodecs recording always goes through the compositor: its steady
+      // frame rate keeps pauses and still screens correctly timed.
       let outputVideoTrack = mainVideoTrack;
-      if ((drawsBubble || captionsReady) && isVideoCompositorSupported()) {
+      const wantsCompositor = useWebCodecs || drawsBubble || (captionsReady && burnIn);
+      if (wantsCompositor && isVideoCompositorSupported()) {
         try {
           compositorRef.current = createVideoCompositor({
             screenTrack: mainVideoTrack,
@@ -361,9 +505,15 @@ export function useScreenRecorder(): ScreenRecorder {
           });
           outputVideoTrack = compositorRef.current.videoTrack;
         } catch {
-          newNotices.push("The video overlay couldn't be drawn — recording without the camera bubble or captions.");
-          captionsReady = false;
+          // Covered by the notices below; the plain capture is recorded instead.
         }
+      }
+      const compositor = compositorRef.current;
+      if (drawsBubble && !compositor) {
+        newNotices.push("This browser can't draw the camera bubble into the video — recording the screen only.");
+      }
+      if (captionsReady && burnIn && !compositor) {
+        newNotices.push("This browser can't draw captions into the video — they'll be in the transcript only.");
       }
 
       if (!recordsCamera && !systemAudioTrack) {
@@ -384,81 +534,29 @@ export function useScreenRecorder(): ScreenRecorder {
       audioMixerRef.current = mixer;
       setMicAnalyser(mixer?.micAnalyser ?? null);
 
-      const outputStream = new MediaStream([
-        outputVideoTrack,
-        ...(mixer?.outputTrack ? [mixer.outputTrack] : []),
-      ]);
-      setPreviewStream(outputStream);
+      const audioTrack = mixer?.outputTrack ?? null;
+      setPreviewStream(new MediaStream([outputVideoTrack, ...(audioTrack ? [audioTrack] : [])]));
 
-      let recorder: MediaRecorder;
-      try {
-        recorder = new MediaRecorder(outputStream, {
-          mimeType,
-          videoBitsPerSecond: videoBitrate(settings.resolution, settings.frameRate),
-          audioBitsPerSecond: AUDIO_BITRATE,
-        });
-      } catch {
-        abort();
-        setError("The recording couldn't be started. Please try again.");
-        return;
-      }
-      mediaRecorderRef.current = recorder;
-
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
-        }
+      const setup: TakeSetup = {
+        settings,
+        videoTrack: outputVideoTrack,
+        audioTrack,
+        compositor,
+        captionTrack: captionsReady ? micTrack : null,
+        useWebCodecs: useWebCodecs && compositor !== null,
       };
-      recorder.onerror = () => {
-        setError("Recording failed unexpectedly and had to stop.");
-      };
-      recorder.onstop = () => {
-        setBlob(new Blob(chunksRef.current, { type: recorder.mimeType }));
-        setStatus("stopped");
-        cleanup();
-      };
-
-      await new Promise<void>((resolve) => {
-        countdownResolverRef.current = resolve;
-        countdown.start(resolve);
-      });
-      countdownResolverRef.current = null;
-      if (startAbortedRef.current) {
-        return abort();
-      }
-
-      recorder.start(TIMESLICE_MS);
-      segmentStartRef.current = performance.now();
-      setStatus("recording");
-      startTimer();
-
-      const compositor = compositorRef.current;
-      if (captionsReady && micTrack && compositor) {
-        captionerRef.current = startLiveCaptions(micTrack, {
-          onText: (text) => compositor.setCaption(text),
-          onError: (message) =>
-            setNotices((previous) =>
-              previous.includes(message) ? previous : [...previous, message]
-            ),
-        });
-      }
+      takeSetupRef.current = setup;
+      await beginTake(setup);
     },
-    [cancelCountdown, cleanup, countdown, finishRecording, startTimer]
+    [beginTake, cleanup, resetTakeTime, stop]
   );
 
-  const stop = useCallback(() => {
-    startAbortedRef.current = true;
-    cancelCountdown();
-    // If recording hadn't begun yet, start() sees the abort flag and cleans up.
-    finishRecording();
-  }, [cancelCountdown, finishRecording]);
-
   const pause = useCallback(() => {
-    const recorder = mediaRecorderRef.current;
-    if (recorder?.state !== "recording") {
+    const session = sessionRef.current;
+    if (!session || finishingRef.current || segmentStartRef.current === null) {
       return;
     }
-    recorder.pause();
+    session.pause();
     captionerRef.current?.pause();
     stopTimer();
     endSegment();
@@ -466,16 +564,51 @@ export function useScreenRecorder(): ScreenRecorder {
   }, [endSegment, stopTimer]);
 
   const resume = useCallback(() => {
-    const recorder = mediaRecorderRef.current;
-    if (recorder?.state !== "paused") {
+    const session = sessionRef.current;
+    if (!session || finishingRef.current || segmentStartRef.current !== null) {
       return;
     }
-    recorder.resume();
+    session.resume();
     captionerRef.current?.resume();
     segmentStartRef.current = performance.now();
     startTimer();
     setStatus("recording");
   }, [startTimer]);
+
+  // Throws the current take away and records a new one from the same screen,
+  // camera and microphone — no need to pick the screen again.
+  const restart = useCallback(() => {
+    const setup = takeSetupRef.current;
+    const session = sessionRef.current;
+    if (!setup || !session || finishingRef.current) {
+      return;
+    }
+    sessionRef.current = null;
+    void session.cancel();
+    captionerRef.current?.stop();
+    captionerRef.current = null;
+    resetTakeTime();
+    setStatus("idle");
+    void beginTake(setup);
+  }, [beginTake, resetTakeTime]);
+
+  const discard = useCallback(() => {
+    startAbortedRef.current = true;
+    cancelCountdown();
+    if (finishingRef.current) {
+      return;
+    }
+    const session = sessionRef.current;
+    sessionRef.current = null;
+    void session?.cancel();
+    // Before a take is set up, the pending start() sees the abort flag and
+    // cleans up itself.
+    if (takeSetupRef.current) {
+      resetTakeTime();
+      cleanup();
+      setStatus("idle");
+    }
+  }, [cancelCountdown, cleanup, resetTakeTime]);
 
   const setMicGain = useCallback((value: number) => {
     audioMixerRef.current?.setMicGain(value);
@@ -489,8 +622,10 @@ export function useScreenRecorder(): ScreenRecorder {
     status,
     isCountingDown: countdown.isRunning,
     countdownValue: countdown.value,
+    isFinishing,
     elapsedSeconds,
     blob,
+    transcript,
     error,
     notices,
     previewStream,
@@ -499,6 +634,8 @@ export function useScreenRecorder(): ScreenRecorder {
     stop,
     pause,
     resume,
+    restart,
+    discard,
     setMicGain,
     setSystemAudioGain,
   };

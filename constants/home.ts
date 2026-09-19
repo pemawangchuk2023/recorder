@@ -21,9 +21,9 @@ export interface Step {
 
 export const FEATURES: readonly Feature[] = [
   {
-    title: "Sharp 1080p MP4",
+    title: "Crisp, compact MP4",
     description:
-      "Recorded at YouTube's recommended bitrates and saved as MP4 instantly — no converting, no waiting.",
+      "Constant-quality encoding keeps text razor sharp while files stay small. Saved as MP4 instantly — no converting.",
     icon: "screen",
   },
   {
@@ -39,9 +39,9 @@ export const FEATURES: readonly Feature[] = [
     icon: "camera",
   },
   {
-    title: "Live captions",
+    title: "Captions and transcript",
     description:
-      "English captions appear inside the video as you speak, transcribed on your own computer.",
+      "Live English captions as you speak, plus a transcript and .srt file — all transcribed on your own computer.",
     icon: "captions",
   },
   {
@@ -53,7 +53,7 @@ export const FEATURES: readonly Feature[] = [
   {
     title: "Made for flow",
     description:
-      "A 3-second countdown, pause and resume, and keyboard shortcuts to stay out of your way.",
+      "Countdown, pause, one-click restart and keyboard shortcuts — then trim the start and end before you save.",
     icon: "keyboard",
   },
 ];
@@ -70,7 +70,8 @@ export const STEPS: readonly Step[] = [
       "Select a screen, window or tab. A short countdown gives you a moment to get ready.",
   },
   {
-    title: "Save your MP4",
-    description: "Stop when you're done, watch it back, and save the file to your computer.",
+    title: "Trim and save",
+    description:
+      "Watch it back, trim the start and end, then save the MP4 or share it straight from your computer.",
   },
 ];

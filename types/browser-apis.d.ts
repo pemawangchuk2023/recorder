@@ -41,24 +41,8 @@ declare global {
     documentPictureInPicture?: DocumentPictureInPicture;
   }
 
-  // Chromium "breakout box" APIs (Chrome/Edge 94+).
-  interface MediaStreamTrackProcessor {
-    readonly readable: ReadableStream<VideoFrame>;
-  }
-
-  var MediaStreamTrackProcessor: {
-    prototype: MediaStreamTrackProcessor;
-    new (init: { track: MediaStreamTrack; maxBufferSize?: number }): MediaStreamTrackProcessor;
-  };
-
-  interface MediaStreamTrackGenerator extends MediaStreamTrack {
-    readonly writable: WritableStream<VideoFrame>;
-  }
-
-  var MediaStreamTrackGenerator: {
-    prototype: MediaStreamTrackGenerator;
-    new (init: { kind: "video" }): MediaStreamTrackGenerator;
-  };
+  // Chromium "breakout box" APIs (MediaStreamTrackProcessor/Generator) are
+  // typed by @types/dom-mediacapture-transform.
 
   // Web Speech API, including Chrome's on-device additions (processLocally,
   // available/install, start(audioTrack)).

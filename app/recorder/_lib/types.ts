@@ -6,6 +6,8 @@ export type Resolution = "720p" | "1080p";
 
 export type FrameRate = 30 | 60;
 
+export type VideoCodecChoice = "avc" | "hevc";
+
 export type BubbleCorner =
   | "top-left"
   | "top-right"
@@ -18,6 +20,7 @@ export interface RecorderSettings {
   source: RecordingSource;
   resolution: Resolution;
   frameRate: FrameRate;
+  codec: VideoCodecChoice;
   mic: { enabled: boolean; deviceId?: string; gain: number };
   systemAudio: { gain: number };
   camera: {
@@ -26,5 +29,13 @@ export interface RecorderSettings {
     corner: BubbleCorner;
     size: BubbleSize;
   };
-  captions: { enabled: boolean };
+  // burnIn draws the captions into the video; the transcript is kept either way.
+  captions: { enabled: boolean; burnIn: boolean };
+}
+
+// A finished caption line, timed in seconds of recorded video.
+export interface TranscriptSegment {
+  start: number;
+  end: number;
+  text: string;
 }

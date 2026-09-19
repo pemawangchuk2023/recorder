@@ -5,14 +5,17 @@ import type {
 } from "@/app/recorder/_lib/types";
 
 export interface VideoCompositor {
-  videoTrack: MediaStreamTrack;
+  videoTrack: MediaStreamVideoTrack;
+  // Every output frame has exactly this size.
+  width: number;
+  height: number;
   setCaption: (text: string) => void;
   stop: () => void;
 }
 
 interface CreateVideoCompositorOptions {
-  screenTrack: MediaStreamTrack;
-  webcamTrack: MediaStreamTrack | null;
+  screenTrack: MediaStreamVideoTrack;
+  webcamTrack: MediaStreamVideoTrack | null;
   maxWidth: number;
   maxHeight: number;
   frameRate: FrameRate;
@@ -75,7 +78,7 @@ function startWorkerClock(frameRate: number, onTick: () => void): () => void {
 }
 
 function readLatestFrames(
-  track: MediaStreamTrack,
+  track: MediaStreamVideoTrack,
   onFrame: (frame: VideoFrame) => void
 ): ReadableStreamDefaultReader<VideoFrame> {
   const reader = new MediaStreamTrackProcessor({ track }).readable.getReader();
@@ -300,6 +303,8 @@ export function createVideoCompositor(
 
   return {
     videoTrack: generator,
+    width,
+    height,
     setCaption(text: string) {
       const trimmed = text.trim();
       if (!trimmed) {

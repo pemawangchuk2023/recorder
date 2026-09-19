@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { formatTime } from "@/app/recorder/_lib/format-time";
 import type { RecorderStatus } from "@/app/recorder/_lib/types";
 
@@ -10,8 +10,11 @@ interface RecorderPreviewProps {
   // Shown before recording starts, e.g. the camera in camera-only mode.
   idleStream: MediaStream | null;
   countdownValue: number | null;
+  isFinishing: boolean;
   elapsedSeconds: number;
   playbackUrl: string | null;
+  // The finished recording's player, for the trim controls.
+  playbackRef: RefObject<HTMLVideoElement | null>;
 }
 
 export function RecorderPreview({
@@ -19,8 +22,10 @@ export function RecorderPreview({
   previewStream,
   idleStream,
   countdownValue,
+  isFinishing,
   elapsedSeconds,
   playbackUrl,
+  playbackRef,
 }: RecorderPreviewProps) {
   const liveVideoRef = useRef<HTMLVideoElement>(null);
   const showPlayback = status === "stopped" && playbackUrl !== null;
@@ -51,6 +56,7 @@ export function RecorderPreview({
 
       {showPlayback && (
         <video
+          ref={playbackRef}
           src={playbackUrl}
           controls
           playsInline
@@ -73,6 +79,12 @@ export function RecorderPreview({
           />
           <span>{status === "paused" ? "Paused" : "Recording"}</span>
           <span className="tabular-nums">{formatTime(elapsedSeconds)}</span>
+        </div>
+      )}
+
+      {isFinishing && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+          <span className="text-2xl font-semibold text-white">Finishing your video…</span>
         </div>
       )}
 
