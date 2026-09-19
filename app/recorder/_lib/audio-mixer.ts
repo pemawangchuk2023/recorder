@@ -1,5 +1,8 @@
 export interface AudioMixer {
   outputTrack: MediaStreamAudioTrack | null;
+  // The mixed signal as Web Audio, for recording straight off the audio thread.
+  context: AudioContext;
+  output: AudioNode;
   micAnalyser: AnalyserNode | null;
   setMicGain: (value: number) => void;
   setSystemAudioGain: (value: number) => void;
@@ -27,6 +30,17 @@ export function createAudioMixer(
   const context = new AudioContext();
   const destination = context.createMediaStreamDestination();
 
+  // Voice plus loud tab audio can add up past full scale, and clipped peaks
+  // crackle. A fast limiter just below 0 dBFS catches only those peaks.
+  const mix = context.createGain();
+  const limiter = context.createDynamicsCompressor();
+  limiter.threshold.value = -2;
+  limiter.knee.value = 0;
+  limiter.ratio.value = 20;
+  limiter.attack.value = 0.002;
+  limiter.release.value = 0.15;
+  mix.connect(limiter).connect(destination);
+
   let systemGainNode: GainNode | null = null;
   if (systemAudioTrack) {
     const source = context.createMediaStreamSource(
@@ -34,7 +48,7 @@ export function createAudioMixer(
     );
     systemGainNode = context.createGain();
     systemGainNode.gain.value = systemAudioGain;
-    source.connect(systemGainNode).connect(destination);
+    source.connect(systemGainNode).connect(mix);
   }
 
   let micGainNode: GainNode | null = null;
@@ -49,13 +63,15 @@ export function createAudioMixer(
     micAnalyser.fftSize = 512;
     source.connect(micGainNode);
     micGainNode.connect(micAnalyser);
-    micAnalyser.connect(destination);
+    micAnalyser.connect(mix);
   }
 
   void context.resume();
 
   return {
     outputTrack: destination.stream.getAudioTracks()[0] ?? null,
+    context,
+    output: limiter,
     micAnalyser,
     setMicGain(value: number) {
       micGainNode?.gain.setTargetAtTime(

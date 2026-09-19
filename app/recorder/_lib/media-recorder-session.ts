@@ -13,7 +13,7 @@ const TIMESLICE_MS = 1000;
 // Browsers without WebCodecs record with MediaRecorder's built-in MP4 encoder.
 export function createMediaRecorderSession({
   videoTrack,
-  audioTrack,
+  audio,
   resolution,
   frameRate,
   onError,
@@ -23,7 +23,7 @@ export function createMediaRecorderSession({
     throw new Error("MP4 recording isn't supported in this browser.");
   }
   const recorder = new MediaRecorder(
-    new MediaStream([videoTrack, ...(audioTrack ? [audioTrack] : [])]),
+    new MediaStream([videoTrack, ...(audio ? [audio.track] : [])]),
     {
       mimeType,
       videoBitsPerSecond: fallbackVideoBitrate(resolution, frameRate),

@@ -1,3 +1,4 @@
+import { TAP_CHANNELS, tapAudio } from "@/app/recorder/_lib/audio-tap";
 import {
   AUDIO_BITRATE,
   KEY_FRAME_INTERVAL_SECONDS,
@@ -72,14 +73,15 @@ export function warmUpEncoder(codec: VideoCodecChoice, width: number, height: nu
 
 export async function createMp4Session({
   videoTrack,
-  audioTrack,
+  audio,
   codec,
   frameRate,
   onError,
 }: RecordingSessionOptions): Promise<RecordingSession> {
   const {
+    AudioSample,
+    AudioSampleSource,
     BufferTarget,
-    MediaStreamAudioTrackSource,
     MediaStreamVideoTrackSource,
     Mp4OutputFormat,
     Output,
@@ -117,33 +119,62 @@ export async function createMp4Session({
   videoSource.errorPromise.catch(reportError);
   output.addVideoTrack(videoSource);
 
-  let audioSource: InstanceType<typeof MediaStreamAudioTrackSource> | null = null;
-  if (audioTrack) {
+  // Audio comes straight off the Web Audio thread (see audio-tap.ts). Each
+  // chunk is timed by counting samples, so the audio has no gaps; while
+  // paused, chunks are skipped without advancing the count.
+  let recordingAudio = false;
+  let audioPaused = false;
+  let framesWritten = 0;
+  let pendingAudio = Promise.resolve();
+  let stopTap: (() => void) | null = null;
+  if (audio) {
+    const { sampleRate } = audio.context;
     const audioQuality = new Quality({ bitrate: AUDIO_BITRATE });
+    const canEncode = (audioCodec: "aac" | "opus") =>
+      canEncodeAudio(audioCodec, { quality: audioQuality, numberOfChannels: TAP_CHANNELS, sampleRate });
     // AAC plays everywhere; Opus is the fallback where AAC can't be encoded.
-    const audioCodec = (await canEncodeAudio("aac", { quality: audioQuality })) ? "aac" : "opus";
-    audioSource = new MediaStreamAudioTrackSource(audioTrack, {
-      codec: audioCodec,
-      quality: audioQuality,
-    });
-    audioSource.errorPromise.catch(reportError);
+    const audioCodec = (await canEncode("aac")) ? "aac" : (await canEncode("opus")) ? "opus" : null;
+    if (!audioCodec) {
+      throw new Error(`No audio encoder for ${sampleRate} Hz.`);
+    }
+    const audioSource = new AudioSampleSource({ codec: audioCodec, quality: audioQuality });
     output.addAudioTrack(audioSource);
+    stopTap = await tapAudio(audio.context, audio.node, (planar, frames) => {
+      if (!recordingAudio || audioPaused || closing) {
+        return;
+      }
+      const sample = new AudioSample({
+        data: planar,
+        format: "f32-planar",
+        numberOfChannels: TAP_CHANNELS,
+        sampleRate,
+        timestamp: framesWritten / sampleRate,
+      });
+      framesWritten += frames;
+      pendingAudio = pendingAudio
+        .then(() => audioSource.add(sample))
+        .catch(reportError)
+        .finally(() => sample.close());
+    });
   }
 
   return {
     async start() {
       await output.start();
+      recordingAudio = true;
     },
     pause() {
       videoSource.pause();
-      audioSource?.pause();
+      audioPaused = true;
     },
     resume() {
       videoSource.resume();
-      audioSource?.resume();
+      audioPaused = false;
     },
     async finish() {
       closing = true;
+      stopTap?.();
+      await pendingAudio;
       await output.finalize();
       const buffer = output.target.buffer;
       if (!buffer) {
@@ -153,6 +184,7 @@ export async function createMp4Session({
     },
     async cancel() {
       closing = true;
+      stopTap?.();
       if (output.state === "pending" || output.state === "started") {
         await output.cancel();
       }

@@ -18,6 +18,7 @@ import {
 } from "@/app/recorder/_lib/recording-format";
 import {
   createRecordingSession,
+  type RecordingAudio,
   type RecordingSession,
 } from "@/app/recorder/_lib/recording-session";
 import type {
@@ -76,7 +77,7 @@ export interface StartOptions {
 interface TakeSetup {
   settings: RecorderSettings;
   videoTrack: MediaStreamVideoTrack;
-  audioTrack: MediaStreamAudioTrack | null;
+  audio: RecordingAudio | null;
   compositor: VideoCompositor | null;
   // The microphone, when captions are ready to transcribe it.
   captionTrack: MediaStreamTrack | null;
@@ -302,7 +303,7 @@ export function useScreenRecorder(): ScreenRecorder {
       try {
         const created = await createRecordingSession({
           videoTrack: setup.videoTrack,
-          audioTrack: setup.audioTrack,
+          audio: setup.audio,
           codec: settings.codec,
           resolution: settings.resolution,
           frameRate: settings.frameRate,
@@ -519,7 +520,7 @@ export function useScreenRecorder(): ScreenRecorder {
       if (!recordsCamera && !systemAudioTrack) {
         newNotices.push(
           micTrack
-            ? "This share has no tab or system audio, so only your microphone is recorded. To include sound, share a Chrome tab with “Also share tab audio” turned on."
+            ? "Your voice is being recorded. Sound playing on your computer isn't, because this share doesn't include it — to record a video's sound too, share a Chrome tab and turn on “Also share tab audio”."
             : "This recording has no audio — the share has no tab or system audio, and no microphone is being recorded."
         );
       }
@@ -534,13 +535,16 @@ export function useScreenRecorder(): ScreenRecorder {
       audioMixerRef.current = mixer;
       setMicAnalyser(mixer?.micAnalyser ?? null);
 
-      const audioTrack = mixer?.outputTrack ?? null;
-      setPreviewStream(new MediaStream([outputVideoTrack, ...(audioTrack ? [audioTrack] : [])]));
+      const audio: RecordingAudio | null =
+        mixer?.outputTrack
+          ? { track: mixer.outputTrack, context: mixer.context, node: mixer.output }
+          : null;
+      setPreviewStream(new MediaStream([outputVideoTrack, ...(audio ? [audio.track] : [])]));
 
       const setup: TakeSetup = {
         settings,
         videoTrack: outputVideoTrack,
-        audioTrack,
+        audio,
         compositor,
         captionTrack: captionsReady ? micTrack : null,
         useWebCodecs: useWebCodecs && compositor !== null,

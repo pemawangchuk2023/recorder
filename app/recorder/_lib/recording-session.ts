@@ -16,9 +16,17 @@ export interface RecordingSession {
   cancel: () => Promise<void>;
 }
 
+// The mixed microphone and tab audio: as a track for MediaRecorder, and as
+// the Web Audio node it comes from for WebCodecs.
+export interface RecordingAudio {
+  track: MediaStreamAudioTrack;
+  context: AudioContext;
+  node: AudioNode;
+}
+
 export interface RecordingSessionOptions {
   videoTrack: MediaStreamVideoTrack;
-  audioTrack: MediaStreamAudioTrack | null;
+  audio: RecordingAudio | null;
   codec: VideoCodecChoice;
   resolution: Resolution;
   frameRate: FrameRate;
@@ -33,14 +41,19 @@ export async function createRecordingSession(
 ): Promise<{ session: RecordingSession; notice: string | null }> {
   const size = options.compositedSize;
   if (size) {
-    if (await canEncodeCodec(options.codec, size, options.frameRate)) {
-      return { session: await createMp4Session(options), notice: null };
-    }
-    if (options.codec !== "avc" && (await canEncodeCodec("avc", size, options.frameRate))) {
-      return {
-        session: await createMp4Session({ ...options, codec: "avc" }),
-        notice: `This computer can't encode ${VIDEO_CODECS[options.codec].label} right now — recording ${VIDEO_CODECS.avc.label} instead.`,
-      };
+    try {
+      if (await canEncodeCodec(options.codec, size, options.frameRate)) {
+        return { session: await createMp4Session(options), notice: null };
+      }
+      if (options.codec !== "avc" && (await canEncodeCodec("avc", size, options.frameRate))) {
+        return {
+          session: await createMp4Session({ ...options, codec: "avc" }),
+          notice: `This computer can't encode ${VIDEO_CODECS[options.codec].label} right now — recording ${VIDEO_CODECS.avc.label} instead.`,
+        };
+      }
+    } catch {
+      // For example no audio encoder for this sample rate; MediaRecorder
+      // handles any input, so record with it instead.
     }
   }
   return { session: createMediaRecorderSession(options), notice: null };
