@@ -3,12 +3,13 @@ import { useCallback, useEffect, useState } from "react";
 const BUBBLE_SIZE = 240;
 
 // The window is a separate document, so it gets its own small stylesheet.
+// Chrome always draws this window as a rectangle with its own title bar (a
+// website can't make it round or transparent), so the camera fills all of it.
 const BUBBLE_CSS = `
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #fff;
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #18181b;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .bubble { position: relative; display: grid; place-items: center; height: 100%; }
-  .camera { width: calc(min(100vw, 100vh) - 16px); aspect-ratio: 1; border-radius: 50%;
-    object-fit: cover; background: #18181b; }
+  .bubble { position: relative; height: 100%; }
+  .camera { display: block; width: 100%; height: 100%; object-fit: cover; }
   .message { position: absolute; inset: 0; display: grid; place-items: center; margin: 0;
     padding: 32px; text-align: center; color: #fff; font-size: 14px; }
   .controls { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);

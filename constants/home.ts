@@ -33,9 +33,9 @@ export const FEATURES: readonly Feature[] = [
     icon: "microphone",
   },
   {
-    title: "Floating camera bubble",
+    title: "Floating camera",
     description:
-      "A round camera badge floats over any app while you record. Pick any camera — or record just yourself.",
+      "Your camera floats over any app while you record, so you can see yourself. Pick any camera — or record just yourself.",
     icon: "camera",
   },
   {

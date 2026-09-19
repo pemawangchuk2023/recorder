@@ -176,17 +176,14 @@ export function createVideoCompositor(
       )
     : null;
 
-  // Camera badge geometry: a circular camera on a white rounded card, matching
-  // the floating bubble window.
+  // Camera bubble geometry: a plain circle in the chosen corner.
   const diameter = Math.round(height * WEBCAM_SIZE_RATIO[size]);
   const radius = diameter / 2;
-  const padding = Math.max(3, Math.round(diameter * 0.04));
-  const badgeSize = diameter + padding * 2;
   const inset = Math.round(height * 0.035);
-  const badgeX = corner.endsWith("left") ? inset : width - inset - badgeSize;
-  const badgeY = corner.startsWith("top") ? inset : height - inset - badgeSize;
-  const centerX = badgeX + badgeSize / 2;
-  const centerY = badgeY + badgeSize / 2;
+  const bubbleX = corner.endsWith("left") ? inset : width - inset - diameter;
+  const bubbleY = corner.startsWith("top") ? inset : height - inset - diameter;
+  const centerX = bubbleX + radius;
+  const centerY = bubbleY + radius;
 
   // Caption geometry: centered near the bottom, kept clear of a bottom-corner
   // bubble — beside it when the frame is wide enough, above it otherwise.
@@ -200,24 +197,25 @@ export function createVideoCompositor(
   // ~50 characters per line at most, like broadcast subtitles.
   let captionMaxWidth = Math.min(width * 0.8, fontSize * 26);
   if (webcamTrack && corner.startsWith("bottom")) {
-    const clearWidth = width - 2 * (inset + badgeSize + gap);
+    const clearWidth = width - 2 * (inset + diameter + gap);
     if (clearWidth >= width * 0.5) {
       captionMaxWidth = Math.min(captionMaxWidth, clearWidth);
     } else {
-      captionBottom = badgeY - gap;
+      captionBottom = bubbleY - gap;
     }
   }
   let captionLines: string[] = [];
   let captionBoxWidth = 0;
 
   const drawBubble = (webcam: VideoFrame) => {
+    // A soft shadow lifts the circle off light and dark screens alike.
     ctx.save();
-    ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-    ctx.shadowBlur = Math.round(badgeSize * 0.08);
-    ctx.shadowOffsetY = Math.round(badgeSize * 0.02);
-    ctx.fillStyle = "#fff";
+    ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
+    ctx.shadowBlur = Math.round(diameter * 0.08);
+    ctx.shadowOffsetY = Math.round(diameter * 0.02);
+    ctx.fillStyle = "#18181b";
     ctx.beginPath();
-    ctx.roundRect(badgeX, badgeY, badgeSize, badgeSize, Math.round(badgeSize * 0.24));
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
