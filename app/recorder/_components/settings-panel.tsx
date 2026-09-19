@@ -340,22 +340,40 @@ export function SettingsPanel({
       </Section>
 
       {recordsScreen && (
-        <Section title="Tab or system audio" disabled={disabled}>
-          <Field label="Volume">
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              className="accent-red-600"
-              value={settings.systemAudio.gain}
-              onChange={(event) => update({ systemAudio: { gain: Number(event.target.value) } })}
-            />
-          </Field>
-          <p className={hint}>
-            Only recorded when the source you share includes audio — for example a
-            Chrome tab with &quot;Also share tab audio&quot; turned on.
-          </p>
+        <Section title="Computer sound" disabled={disabled}>
+          <Toggle
+            label="Record computer sound"
+            checked={settings.systemAudio.enabled}
+            onChange={(enabled) => update({ systemAudio: { ...settings.systemAudio, enabled } })}
+          />
+          {settings.systemAudio.enabled ? (
+            <>
+              <Field label="Volume">
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  className="accent-red-600"
+                  value={settings.systemAudio.gain}
+                  onChange={(event) =>
+                    update({ systemAudio: { ...settings.systemAudio, gain: Number(event.target.value) } })
+                  }
+                />
+              </Field>
+              <p className={hint}>
+                When you press Start, Chrome opens on its list of tabs: pick the tab
+                playing the sound and keep “Also share tab audio” on. Sharing your
+                whole screen includes sound only if Chrome offers “Also share system
+                audio”.
+              </p>
+            </>
+          ) : (
+            <p className={hint}>
+              Off: only your voice is recorded. Turn on to include sound playing on
+              your computer, like a video or a demo.
+            </p>
+          )}
         </Section>
       )}
 

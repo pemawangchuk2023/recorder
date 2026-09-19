@@ -35,7 +35,7 @@ const DEFAULT_SETTINGS: RecorderSettings = {
   frameRate: 30,
   codec: "avc",
   mic: { enabled: true, gain: 1 },
-  systemAudio: { gain: 1 },
+  systemAudio: { enabled: false, gain: 1 },
   camera: { enabled: false, corner: "bottom-right", size: "medium" },
   captions: { enabled: true, burnIn: true },
 };

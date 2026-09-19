@@ -407,6 +407,7 @@ export function useScreenRecorder(): ScreenRecorder {
         mainVideoTrack = cameraTrack;
         cameraTrack.onended = stop;
       } else {
+        const wantsComputerSound = settings.systemAudio.enabled;
         let displayStream: MediaStream;
         try {
           displayStream = await navigator.mediaDevices.getDisplayMedia({
@@ -414,10 +415,17 @@ export function useScreenRecorder(): ScreenRecorder {
               width: { ideal: width },
               height: { ideal: height },
               frameRate: { ideal: settings.frameRate },
+              // Opens Chrome's picker on its tab list, where "Also share tab
+              // audio" lives — the one share that always carries sound.
+              ...(wantsComputerSound ? { displaySurface: "browser" } : {}),
             },
-            // Tab/system audio should be captured as-is, not voice-processed.
-            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-            systemAudio: "include",
+            // Computer sound is captured as-is, not voice-processed.
+            audio: wantsComputerSound
+              ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+              : false,
+            systemAudio: wantsComputerSound ? "include" : "exclude",
+            // Recording the recorder's own tab is never what anyone wants.
+            selfBrowserSurface: "exclude",
             surfaceSwitching: "include",
           });
         } catch (cause) {
@@ -518,11 +526,15 @@ export function useScreenRecorder(): ScreenRecorder {
       }
 
       if (!recordsCamera && !systemAudioTrack) {
-        newNotices.push(
-          micTrack
-            ? "Your voice is being recorded. Sound playing on your computer isn't, because this share doesn't include it — to record a video's sound too, share a Chrome tab and turn on “Also share tab audio”."
-            : "This recording has no audio — the share has no tab or system audio, and no microphone is being recorded."
-        );
+        if (settings.systemAudio.enabled) {
+          newNotices.push(
+            micTrack
+              ? "Your voice is being recorded, but computer sound isn't: this share doesn't include it. To record it, share a Chrome tab and keep “Also share tab audio” on."
+              : "This recording has no audio: the share doesn't include computer sound and the microphone is off. Share a Chrome tab and keep “Also share tab audio” on."
+          );
+        } else if (!micTrack) {
+          newNotices.push("This recording has no audio. Turn on the microphone or “Record computer sound” to include sound.");
+        }
       }
       setNotices(newNotices);
 

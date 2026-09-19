@@ -22,7 +22,9 @@ export interface RecorderSettings {
   frameRate: FrameRate;
   codec: VideoCodecChoice;
   mic: { enabled: boolean; deviceId?: string; gain: number };
-  systemAudio: { gain: number };
+  // Sound playing on the computer, which only a shared Chrome tab (or a
+  // screen, where Chrome supports it) can include.
+  systemAudio: { enabled: boolean; gain: number };
   camera: {
     enabled: boolean;
     deviceId?: string;
