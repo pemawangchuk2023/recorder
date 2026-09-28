@@ -17,8 +17,9 @@ export const VIDEO_QUALITY_LEVEL = "high";
 // seeking still lands instantly.
 export const KEY_FRAME_INTERVAL_SECONDS = 10;
 
-// Plenty for speech and tab audio.
-export const AUDIO_BITRATE = 128_000;
+// Music from a tab needs more than speech: at 128 kbps loud, dense songs
+// came out thin and gritty; 192 kbps keeps them close to the original.
+export const AUDIO_BITRATE = 192_000;
 
 // WebCodecs encoding needs the video compositor, which supplies frames at a
 // steady rate so pausing and still screens are timed correctly.

@@ -1,22 +1,30 @@
 import Link from "next/link";
 import { Logo } from "@/app/_components/logo";
+import { MobileNav } from "@/app/_components/mobile-nav";
+import { NavLinks } from "@/app/_components/nav-links";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Button } from "@/components/ui/button";
+import { SITE_NAME } from "@/constants/site";
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-10 border-b border-zinc-200/80 bg-zinc-50/80 backdrop-blur dark:border-zinc-800/80 dark:bg-zinc-950/80">
-      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-5 sm:px-8">
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
+      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-8">
         <Link href="/" className="flex items-center gap-3 text-base font-semibold tracking-tight sm:text-lg">
           <Logo />
-          Screen Recorder
+          {SITE_NAME}
         </Link>
-        <nav className="flex items-center gap-5 text-base font-medium sm:gap-8 text-zinc-600 dark:text-zinc-400">
-          <Link href="/" className="transition-colors hover:text-zinc-900 dark:hover:text-white">
-            Home
-          </Link>
-          <Link href="/recorder" className="transition-colors hover:text-zinc-900 dark:hover:text-white">
-            Recorder
-          </Link>
-        </nav>
+        <NavLinks className="hidden items-center gap-1 md:flex" />
+        <div className="flex items-center gap-1 sm:gap-2">
+          <ThemeToggle />
+          <Button asChild className="hidden h-10 rounded-full px-5 text-base sm:inline-flex">
+            <Link href="/recorder">
+              <span className="size-2 rounded-full bg-primary-foreground" aria-hidden="true" />
+              Start recording
+            </Link>
+          </Button>
+          <MobileNav />
+        </div>
       </div>
     </header>
   );

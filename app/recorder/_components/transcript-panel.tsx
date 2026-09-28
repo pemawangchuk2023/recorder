@@ -41,7 +41,7 @@ export function TranscriptPanel({ segments, baseName, playbackRef }: TranscriptP
       <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-lg font-semibold">
         <span>
           Transcript{" "}
-          <span className="font-normal text-zinc-500 dark:text-zinc-400">
+          <span className="font-normal text-muted-foreground">
             · {segments.length} {segments.length === 1 ? "line" : "lines"}
           </span>
         </span>

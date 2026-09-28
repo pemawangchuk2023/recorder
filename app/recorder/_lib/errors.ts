@@ -40,3 +40,22 @@ export function describeDeviceError(
       return `Your ${device} couldn't be started — ${without}.`;
   }
 }
+
+// Recording on without the sound would leave only the microphone hearing the
+// speakers — muddy and distorted — so the take is stopped instead.
+export const NO_COMPUTER_SOUND_ERROR =
+  "Computer sound wasn't shared, so YouTube, music and other sound can't be recorded. Press Start again, choose the “Chrome Tab” list, pick the tab playing the sound, and keep “Also share tab audio” switched on. On a Mac, sharing a window or the entire screen carries no sound. To record without it, turn off “Record computer sound”.";
+
+export const SPEAKER_ECHO_NOTICE =
+  "Recording computer sound and your microphone together: wear headphones, or the microphone will also pick up the speakers and make the sound muddy.";
+
+// Shown when the shared computer sound stays completely silent. On a Mac,
+// sharing a screen or window gives Chrome a sound track that stays empty
+// without the System Audio Recording permission.
+export function silentComputerSoundNotice(displaySurface: string | undefined): string {
+  const fix =
+    "Stop, press Start again, choose the “Chrome Tab” list, pick the tab playing the sound, and keep “Also share tab audio” on.";
+  return displaySurface === "browser"
+    ? `No computer sound is coming through yet. If the tab is playing, check it isn't muted in Chrome (right-click the tab) — or ${fix.charAt(0).toLowerCase()}${fix.slice(1)}`
+    : `No computer sound is coming through: on a Mac, sharing a ${displaySurface === "window" ? "window" : "whole screen"} usually records no sound. ${fix} (Or allow Chrome in System Settings → Privacy & Security → Screen & System Audio Recording.)`;
+}

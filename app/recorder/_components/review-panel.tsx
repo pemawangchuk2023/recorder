@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type RefObject } from "react";
+import { ExportPanel } from "@/app/recorder/_components/export-panel";
 import { TranscriptPanel } from "@/app/recorder/_components/transcript-panel";
 import { TrimEditor } from "@/app/recorder/_components/trim-editor";
 import { useRecordingInfo } from "@/app/recorder/_hooks/use-recording-info";
@@ -108,22 +109,21 @@ export function ReviewPanel({
         </div>
       </div>
 
-      {((info && info.duration > 1 && canTrimRecordings()) || transcript.length > 0) && (
-        <div className="flex flex-col gap-6 rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-          {info && info.duration > 1 && canTrimRecordings() && (
-            <TrimEditor
-              blob={blob}
-              duration={info.duration}
-              transcript={transcript}
-              playbackRef={playbackRef}
-              onTrimmed={onTrimmed}
-            />
-          )}
-          {transcript.length > 0 && (
-            <TranscriptPanel segments={transcript} baseName={baseName} playbackRef={playbackRef} />
-          )}
-        </div>
-      )}
+      <div className="flex flex-col gap-6 rounded-3xl border bg-card p-6">
+        {info && info.duration > 1 && canTrimRecordings() && (
+          <TrimEditor
+            blob={blob}
+            duration={info.duration}
+            transcript={transcript}
+            playbackRef={playbackRef}
+            onTrimmed={onTrimmed}
+          />
+        )}
+        {transcript.length > 0 && (
+          <TranscriptPanel segments={transcript} baseName={baseName} playbackRef={playbackRef} />
+        )}
+        <ExportPanel blob={blob} baseName={baseName} />
+      </div>
     </div>
   );
 }

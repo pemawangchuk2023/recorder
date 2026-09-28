@@ -2,8 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useCountdown } from "@/app/recorder/_hooks/use-countdown";
 import { createAudioMixer, type AudioMixer } from "@/app/recorder/_lib/audio-mixer";
 import {
+  NO_COMPUTER_SOUND_ERROR,
+  SPEAKER_ECHO_NOTICE,
   describeDeviceError,
   describeScreenCaptureError,
+  silentComputerSoundNotice,
 } from "@/app/recorder/_lib/errors";
 import {
   getEnglishModelStatus,
@@ -11,6 +14,7 @@ import {
   type LiveCaptioner,
 } from "@/app/recorder/_lib/live-captions";
 import { warmUpEncoder } from "@/app/recorder/_lib/mp4-encoder";
+import { watchForSilence } from "@/app/recorder/_lib/silence-watch";
 import {
   RESOLUTIONS,
   canUseWebCodecs,
@@ -21,7 +25,9 @@ import {
   type RecordingAudio,
   type RecordingSession,
 } from "@/app/recorder/_lib/recording-session";
+import { MIC_CONSTRAINTS } from "@/constants/recorder";
 import type {
+  MicMode,
   RecorderSettings,
   RecorderStatus,
   TranscriptSegment,
@@ -33,20 +39,17 @@ import {
 } from "@/app/recorder/_lib/video-compositor";
 
 const COUNTDOWN_SECONDS = 3;
+// How long shared computer sound may stay completely silent before a warning.
+const SILENT_SOUND_WARNING_SECONDS = 6;
 
-const VOICE_PROCESSING: MediaTrackConstraints = {
-  echoCancellation: true,
-  noiseSuppression: true,
-  autoGainControl: true,
-};
-
-async function getMicrophone(deviceId: string | undefined): Promise<MediaStream> {
+async function getMicrophone(deviceId: string | undefined, mode: MicMode): Promise<MediaStream> {
+  const processing = MIC_CONSTRAINTS[mode];
   if (!deviceId) {
-    return navigator.mediaDevices.getUserMedia({ audio: VOICE_PROCESSING });
+    return navigator.mediaDevices.getUserMedia({ audio: processing });
   }
   try {
     return await navigator.mediaDevices.getUserMedia({
-      audio: { ...VOICE_PROCESSING, deviceId: { exact: deviceId } },
+      audio: { ...processing, deviceId: { exact: deviceId } },
     });
   } catch (cause) {
     // The previously chosen mic may have been unplugged — use the default.
@@ -54,7 +57,7 @@ async function getMicrophone(deviceId: string | undefined): Promise<MediaStream>
       cause instanceof DOMException &&
       (cause.name === "OverconstrainedError" || cause.name === "NotFoundError")
     ) {
-      return navigator.mediaDevices.getUserMedia({ audio: VOICE_PROCESSING });
+      return navigator.mediaDevices.getUserMedia({ audio: processing });
     }
     throw cause;
   }
@@ -133,6 +136,7 @@ export function useScreenRecorder(): ScreenRecorder {
   const audioMixerRef = useRef<AudioMixer | null>(null);
   const compositorRef = useRef<VideoCompositor | null>(null);
   const captionerRef = useRef<LiveCaptioner | null>(null);
+  const stopSilenceWatchRef = useRef<(() => void) | null>(null);
   const takeSetupRef = useRef<TakeSetup | null>(null);
   const sessionRef = useRef<RecordingSession | null>(null);
   const finishingRef = useRef(false);
@@ -201,6 +205,8 @@ export function useScreenRecorder(): ScreenRecorder {
 
     captionerRef.current?.stop();
     captionerRef.current = null;
+    stopSilenceWatchRef.current?.();
+    stopSilenceWatchRef.current = null;
     compositorRef.current?.stop();
     compositorRef.current = null;
 
@@ -341,6 +347,15 @@ export function useScreenRecorder(): ScreenRecorder {
       setStatus("recording");
       startTimer();
 
+      const systemAnalyser = audioMixerRef.current?.systemAnalyser;
+      if (systemAnalyser) {
+        stopSilenceWatchRef.current?.();
+        const displaySurface = displayStreamRef.current?.getVideoTracks()[0]?.getSettings().displaySurface;
+        stopSilenceWatchRef.current = watchForSilence(systemAnalyser, SILENT_SOUND_WARNING_SECONDS, () =>
+          addNotice(silentComputerSoundNotice(displaySurface))
+        );
+      }
+
       if (setup.captionTrack) {
         captionerRef.current = startLiveCaptions(setup.captionTrack, {
           onText: (text) => {
@@ -450,13 +465,18 @@ export function useScreenRecorder(): ScreenRecorder {
         videoTrack.onended = stop;
         mainVideoTrack = videoTrack;
         systemAudioTrack = displayStream.getAudioTracks()[0] ?? null;
+        if (wantsComputerSound && !systemAudioTrack) {
+          abort();
+          setError(NO_COMPUTER_SOUND_ERROR);
+          return;
+        }
         sharesFullScreen = videoTrack.getSettings().displaySurface === "monitor";
       }
 
       let micStream: MediaStream | null = null;
       if (settings.mic.enabled) {
         try {
-          micStream = await getMicrophone(settings.mic.deviceId);
+          micStream = await getMicrophone(settings.mic.deviceId, settings.mic.mode);
         } catch (cause) {
           newNotices.push(describeDeviceError(cause, "microphone"));
         }
@@ -525,16 +545,11 @@ export function useScreenRecorder(): ScreenRecorder {
         newNotices.push("This browser can't draw captions into the video — they'll be in the transcript only.");
       }
 
-      if (!recordsCamera && !systemAudioTrack) {
-        if (settings.systemAudio.enabled) {
-          newNotices.push(
-            micTrack
-              ? "Your voice is being recorded, but computer sound isn't: this share doesn't include it. To record it, share a Chrome tab and keep “Also share tab audio” on."
-              : "This recording has no audio: the share doesn't include computer sound and the microphone is off. Share a Chrome tab and keep “Also share tab audio” on."
-          );
-        } else if (!micTrack) {
-          newNotices.push("This recording has no audio. Turn on the microphone or “Record computer sound” to include sound.");
-        }
+      if (!recordsCamera && !systemAudioTrack && !micTrack) {
+        newNotices.push("This recording has no audio. Turn on the microphone or “Record computer sound” to include sound.");
+      }
+      if (systemAudioTrack && micTrack) {
+        newNotices.push(SPEAKER_ECHO_NOTICE);
       }
       setNotices(newNotices);
 

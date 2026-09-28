@@ -1,10 +1,12 @@
+// The recording dot inside a rounded square; the ring pulses gently.
 export function Logo() {
   return (
     <span
       aria-hidden="true"
-      className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-900 dark:bg-white"
+      className="relative flex size-9 items-center justify-center rounded-xl bg-foreground shadow-sm"
     >
-      <span className="h-3 w-3 rounded-full bg-red-500" />
+      <span className="absolute size-5 rounded-full bg-brand/30 motion-safe:animate-ping [animation-duration:2.5s]" />
+      <span className="relative size-3 rounded-full bg-brand" />
     </span>
   );
 }

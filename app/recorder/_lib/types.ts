@@ -8,6 +8,10 @@ export type FrameRate = 30 | 60;
 
 export type VideoCodecChoice = "avc" | "hevc";
 
+// "voice" cleans up speech (echo, noise, level); "original" keeps the sound
+// exactly as the mic hears it, which music and instruments need.
+export type MicMode = "voice" | "original";
+
 export type BubbleCorner =
   | "top-left"
   | "top-right"
@@ -21,7 +25,7 @@ export interface RecorderSettings {
   resolution: Resolution;
   frameRate: FrameRate;
   codec: VideoCodecChoice;
-  mic: { enabled: boolean; deviceId?: string; gain: number };
+  mic: { enabled: boolean; deviceId?: string; gain: number; mode: MicMode };
   // Sound playing on the computer, which only a shared Chrome tab (or a
   // screen, where Chrome supports it) can include.
   systemAudio: { enabled: boolean; gain: number };

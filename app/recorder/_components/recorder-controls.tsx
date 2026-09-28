@@ -50,7 +50,7 @@ export function RecorderControls({
       <div
         role="alertdialog"
         aria-labelledby="confirm-question"
-        className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900"
+        className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border bg-card p-5"
       >
         <p id="confirm-question" className="text-base font-medium">
           {CONFIRM_TEXT[confirming].question}
@@ -124,7 +124,7 @@ export function RecorderControls({
           Discard
         </button>
       </div>
-      <p className="text-base text-zinc-500 dark:text-zinc-400">
+      <p className="text-base text-muted-foreground">
         Shortcuts: <kbd className="font-mono">Ctrl+Shift+P</kbd> pause/resume ·{" "}
         <kbd className="font-mono">Ctrl+Shift+R</kbd> start/stop (some browsers
         reserve this one for reload).

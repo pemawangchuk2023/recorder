@@ -119,7 +119,7 @@ export function TrimEditor({ blob, duration, transcript, playbackRef, onTrimmed 
         <h3 id="trim-heading" className="text-lg font-semibold">
           Trim
         </h3>
-        <p className="text-base tabular-nums text-zinc-600 dark:text-zinc-400">
+        <p className="text-base tabular-nums text-muted-foreground">
           Keeping {formatPreciseTime(end - start)} of {formatPreciseTime(duration)}
         </p>
       </div>
@@ -161,7 +161,7 @@ export function TrimEditor({ blob, duration, transcript, playbackRef, onTrimmed 
           Apply trim
         </button>
         {progress !== null && (
-          <span className="text-base tabular-nums text-zinc-600 dark:text-zinc-400" role="status">
+          <span className="text-base tabular-nums text-muted-foreground" role="status">
             Trimming… {Math.round(progress * 100)}%
           </span>
         )}
@@ -172,7 +172,7 @@ export function TrimEditor({ blob, duration, transcript, playbackRef, onTrimmed 
         )}
       </div>
       {trimsStart && !isApplying && (
-        <p className="text-base text-zinc-500 dark:text-zinc-400">
+        <p className="text-base text-muted-foreground">
           Cutting the start re-encodes the video, which takes a little while for long recordings.
         </p>
       )}

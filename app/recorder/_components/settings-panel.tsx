@@ -3,11 +3,12 @@
 import type { ReactNode } from "react";
 import type { CaptionModel } from "@/app/recorder/_hooks/use-caption-model";
 import type { MediaDevice } from "@/app/recorder/_hooks/use-devices";
-import { VIDEO_CODECS } from "@/constants/recorder";
+import { MIC_MODES, VIDEO_CODECS } from "@/constants/recorder";
 import type {
   BubbleCorner,
   BubbleSize,
   FrameRate,
+  MicMode,
   RecorderSettings,
   RecordingSource,
   Resolution,
@@ -47,8 +48,8 @@ const CORNERS: { value: BubbleCorner; label: string }[] = [
 ];
 
 const control =
-  "w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base dark:border-zinc-700 dark:bg-zinc-900";
-const hint = "text-base leading-relaxed text-zinc-500 dark:text-zinc-400";
+  "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-base";
+const hint = "text-base leading-relaxed text-muted-foreground";
 
 function choiceClass(selected: boolean): string {
   return `rounded-xl border px-3 py-2.5 text-base font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
@@ -62,7 +63,7 @@ function Section({ title, disabled, children }: { title: string; disabled: boole
   return (
     <fieldset
       disabled={disabled}
-      className="flex flex-col gap-4 rounded-3xl border border-zinc-200 bg-white p-6 disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900"
+      className="flex flex-col gap-4 rounded-3xl border bg-card p-6 disabled:opacity-60"
     >
       <legend className="px-1.5 text-lg font-semibold">{title}</legend>
       {children}
@@ -276,6 +277,23 @@ export function SettingsPanel({
                 onChange={(deviceId) => update({ mic: { ...settings.mic, deviceId } })}
               />
             </Field>
+            <div className="flex flex-col gap-2 text-base text-zinc-700 dark:text-zinc-300">
+              Sound
+              <div className="grid grid-cols-2 gap-2">
+                {(Object.keys(MIC_MODES) as MicMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    aria-pressed={settings.mic.mode === mode}
+                    onClick={() => update({ mic: { ...settings.mic, mode } })}
+                    className={choiceClass(settings.mic.mode === mode)}
+                  >
+                    {MIC_MODES[mode].label}
+                  </button>
+                ))}
+              </div>
+              <p className={hint}>{MIC_MODES[settings.mic.mode].description}</p>
+            </div>
             <Field label="Microphone volume">
               <input
                 type="range"
@@ -365,13 +383,15 @@ export function SettingsPanel({
                 When you press Start, Chrome opens on its list of tabs: pick the tab
                 playing the sound and keep “Also share tab audio” on. Sharing your
                 whole screen includes sound only if Chrome offers “Also share system
-                audio”.
+                audio”. Talking too? Wear headphones, so the microphone doesn&apos;t
+                pick up the speakers a second time.
               </p>
             </>
           ) : (
             <p className={hint}>
-              Off: only your voice is recorded. Turn on to include sound playing on
-              your computer, like a video or a demo.
+              Off: only your voice is recorded. Turn on to include music, videos or
+              anything else playing on your computer — recorded directly, so it
+              sounds exactly like the original.
             </p>
           )}
         </Section>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PageHeader } from "@/app/_components/page-header";
 import { Recorder } from "@/app/recorder/_components/recorder";
 
 export const metadata: Metadata = {
@@ -9,14 +10,11 @@ export const metadata: Metadata = {
 
 export default function RecorderPage() {
   return (
-    <div className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 sm:py-14">
-      <div className="mb-8 flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Record your screen</h1>
-        <p className="text-lg text-zinc-600 dark:text-zinc-400">
-          Choose your settings, press Start, then pick what to share. Your
-          recording never leaves this computer.
-        </p>
-      </div>
+    <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-8 sm:py-16">
+      <PageHeader eyebrow="Screen recorder" title="Record your screen">
+        Choose your settings, press Start, then pick what to share. Your
+        recording never leaves this computer.
+      </PageHeader>
       <Recorder />
     </div>
   );

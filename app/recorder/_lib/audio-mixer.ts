@@ -4,6 +4,8 @@ export interface AudioMixer {
   context: AudioContext;
   output: AudioNode;
   micAnalyser: AnalyserNode | null;
+  // The computer sound before its volume is applied, to notice a silent share.
+  systemAnalyser: AnalyserNode | null;
   setMicGain: (value: number) => void;
   setSystemAudioGain: (value: number) => void;
   close: () => Promise<void>;
@@ -31,17 +33,24 @@ export function createAudioMixer(
   const destination = context.createMediaStreamDestination();
 
   // Voice plus loud tab audio can add up past full scale, and clipped peaks
-  // crackle. A fast limiter just below 0 dBFS catches only those peaks.
+  // crackle, so a mix of both goes through a fast limiter. A single source
+  // (volume at most 100%) can't overload and is recorded untouched: songs are
+  // mastered right up to full scale, and limiting them made music gritty.
   const mix = context.createGain();
-  const limiter = context.createDynamicsCompressor();
-  limiter.threshold.value = -2;
-  limiter.knee.value = 0;
-  limiter.ratio.value = 20;
-  limiter.attack.value = 0.002;
-  limiter.release.value = 0.15;
-  mix.connect(limiter).connect(destination);
+  let output: AudioNode = mix;
+  if (systemAudioTrack && micTrack) {
+    const limiter = context.createDynamicsCompressor();
+    limiter.threshold.value = -2;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.002;
+    limiter.release.value = 0.15;
+    output = mix.connect(limiter);
+  }
+  output.connect(destination);
 
   let systemGainNode: GainNode | null = null;
+  let systemAnalyser: AnalyserNode | null = null;
   if (systemAudioTrack) {
     const source = context.createMediaStreamSource(
       new MediaStream([systemAudioTrack])
@@ -49,6 +58,8 @@ export function createAudioMixer(
     systemGainNode = context.createGain();
     systemGainNode.gain.value = systemAudioGain;
     source.connect(systemGainNode).connect(mix);
+    systemAnalyser = context.createAnalyser();
+    source.connect(systemAnalyser);
   }
 
   let micGainNode: GainNode | null = null;
@@ -71,8 +82,9 @@ export function createAudioMixer(
   return {
     outputTrack: destination.stream.getAudioTracks()[0] ?? null,
     context,
-    output: limiter,
+    output,
     micAnalyser,
+    systemAnalyser,
     setMicGain(value: number) {
       micGainNode?.gain.setTargetAtTime(
         value,

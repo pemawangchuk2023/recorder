@@ -34,8 +34,10 @@ const DEFAULT_SETTINGS: RecorderSettings = {
   resolution: "1080p",
   frameRate: 30,
   codec: "avc",
-  mic: { enabled: true, gain: 1 },
-  systemAudio: { enabled: false, gain: 1 },
+  mic: { enabled: true, gain: 1, mode: "voice" },
+  // On by default: music and video sound are only clean when captured
+  // directly, never through the mic hearing the speakers.
+  systemAudio: { enabled: true, gain: 1 },
   camera: { enabled: false, corner: "bottom-right", size: "medium" },
   captions: { enabled: true, burnIn: true },
 };
