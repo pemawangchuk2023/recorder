@@ -1,11 +1,21 @@
+import { CORNER_POSITIONS } from "@/app/recorder/_lib/bubble-geometry";
 import { RESOLUTIONS } from "@/app/recorder/_lib/recording-format";
-import type { RecorderSettings } from "@/app/recorder/_lib/types";
+import type {
+  BubbleCorner,
+  BubblePosition,
+  CameraFraming,
+  RecorderSettings,
+} from "@/app/recorder/_lib/types";
 import {
-  BUBBLE_CORNERS,
   BUBBLE_SHAPES,
-  BUBBLE_SIZES,
+  BUBBLE_SIZE_RANGE,
   COUNTDOWN_OPTIONS,
+  DEFAULT_FRAMING,
   DEFAULT_SETTINGS,
+  LAYOUT_OPTIONS,
+  SCREEN_FIT_OPTIONS,
+  STACKED_SPLIT_RANGE,
+  MAX_CAMERA_ZOOM,
   FRAME_RATE_OPTIONS,
   MIC_MODES,
   SETTINGS_STORAGE_KEY,
@@ -19,6 +29,42 @@ function oneOf<T>(value: unknown, allowed: readonly T[], fallback: T): T {
 
 function volume(value: unknown, fallback: number): number {
   return typeof value === "number" && value >= 0 && value <= 1 ? value : fallback;
+}
+
+function fraction(value: unknown): value is number {
+  return typeof value === "number" && value >= 0 && value <= 1;
+}
+
+// Older versions saved a corner instead of a position.
+function bubblePosition(camera: Record<string, unknown>, fallback: BubblePosition): BubblePosition {
+  const position = camera.position as Record<string, unknown> | undefined;
+  if (position && fraction(position.x) && fraction(position.y)) {
+    return { x: position.x, y: position.y };
+  }
+  const corner = camera.corner as BubbleCorner | undefined;
+  return corner && corner in CORNER_POSITIONS ? CORNER_POSITIONS[corner] : fallback;
+}
+
+function cameraFraming(value: unknown): CameraFraming {
+  const framing = (value ?? {}) as Record<string, unknown>;
+  const zoom = framing.zoom;
+  return {
+    zoom: typeof zoom === "number" && zoom >= 1 && zoom <= MAX_CAMERA_ZOOM ? zoom : DEFAULT_FRAMING.zoom,
+    x: fraction(framing.x) ? framing.x : DEFAULT_FRAMING.x,
+    y: fraction(framing.y) ? framing.y : DEFAULT_FRAMING.y,
+  };
+}
+
+// Older versions saved a named size.
+const NAMED_BUBBLE_SIZES: Record<string, number> = { small: 0.22, medium: 0.3, large: 0.38, xl: 0.5 };
+
+function bubbleSize(value: unknown, fallback: number): number {
+  if (typeof value === "string") {
+    return NAMED_BUBBLE_SIZES[value] ?? fallback;
+  }
+  return typeof value === "number" && value >= BUBBLE_SIZE_RANGE.min && value <= BUBBLE_SIZE_RANGE.max
+    ? value
+    : fallback;
 }
 
 function optionalString(value: unknown): string | undefined {
@@ -44,6 +90,8 @@ export function parseSettings(raw: string | null): RecorderSettings {
   const systemAudio = (stored.systemAudio ?? {}) as Record<string, unknown>;
   const camera = (stored.camera ?? {}) as Record<string, unknown>;
   const captions = (stored.captions ?? {}) as Record<string, unknown>;
+  const stacked = (stored.stacked ?? {}) as Record<string, unknown>;
+  const split = stacked.split;
   const values = <T>(options: readonly { value: T }[]) => options.map((option) => option.value);
 
   return {
@@ -53,6 +101,14 @@ export function parseSettings(raw: string | null): RecorderSettings {
     codec: oneOf(stored.codec, Object.keys(VIDEO_CODECS) as (keyof typeof VIDEO_CODECS)[], d.codec),
     quality: oneOf(stored.quality, Object.keys(VIDEO_QUALITIES) as (keyof typeof VIDEO_QUALITIES)[], d.quality),
     countdown: oneOf(stored.countdown, values(COUNTDOWN_OPTIONS), d.countdown),
+    layout: oneOf(stored.layout, values(LAYOUT_OPTIONS), d.layout),
+    stacked: {
+      split:
+        typeof split === "number" && split >= STACKED_SPLIT_RANGE.min && split <= STACKED_SPLIT_RANGE.max
+          ? split
+          : d.stacked.split,
+      screenFit: oneOf(stacked.screenFit, values(SCREEN_FIT_OPTIONS), d.stacked.screenFit),
+    },
     mic: {
       enabled: typeof mic.enabled === "boolean" ? mic.enabled : d.mic.enabled,
       deviceId: optionalString(mic.deviceId),
@@ -68,10 +124,11 @@ export function parseSettings(raw: string | null): RecorderSettings {
       // offers a button for it.
       enabled: typeof camera.enabled === "boolean" ? camera.enabled : d.camera.enabled,
       deviceId: optionalString(camera.deviceId),
-      corner: oneOf(camera.corner, values(BUBBLE_CORNERS), d.camera.corner),
-      size: oneOf(camera.size, values(BUBBLE_SIZES), d.camera.size),
+      position: bubblePosition(camera, d.camera.position),
+      size: bubbleSize(camera.size, d.camera.size),
       shape: oneOf(camera.shape, values(BUBBLE_SHAPES), d.camera.shape),
       mirror: typeof camera.mirror === "boolean" ? camera.mirror : d.camera.mirror,
+      framing: cameraFraming(camera.framing),
     },
     captions: {
       enabled: typeof captions.enabled === "boolean" ? captions.enabled : d.captions.enabled,

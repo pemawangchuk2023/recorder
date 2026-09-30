@@ -3,9 +3,18 @@
 import { AppWindow, CameraOff, Loader2 } from "lucide-react";
 import type { RefObject } from "react";
 import { CameraBubblePreview } from "@/app/recorder/_components/camera-bubble-preview";
+import { DraggableBubble } from "@/app/recorder/_components/draggable-bubble";
+import { StackedPreview } from "@/app/recorder/_components/stacked-preview";
 import { StreamVideo } from "@/app/recorder/_components/stream-video";
 import { formatTime } from "@/app/recorder/_lib/format-time";
-import type { RecorderSettings, RecorderStatus, RecordingMode } from "@/app/recorder/_lib/types";
+import type {
+  BubblePosition,
+  RecorderSettings,
+  RecorderStatus,
+  RecordingMode,
+  ScreenCameraLayout,
+  StackedLayout,
+} from "@/app/recorder/_lib/types";
 import { cn } from "@/lib/utils";
 
 interface RecorderPreviewProps {
@@ -16,6 +25,13 @@ interface RecorderPreviewProps {
   // The live camera, shown before recording starts.
   cameraStream: MediaStream | null;
   camera: RecorderSettings["camera"];
+  layout: ScreenCameraLayout;
+  stacked: StackedLayout;
+  onBubbleMove: (position: BubblePosition) => void;
+  onBubbleResize: (size: number, position: BubblePosition) => void;
+  // Set while the bubble is drawn into the recording, so it can be dragged there.
+  bubbleFrame: { width: number; height: number } | null;
+  bubbleHidden: boolean;
   countdownValue: number | null;
   onSkipCountdown: () => void;
   isFinishing: boolean;
@@ -55,6 +71,12 @@ export function RecorderPreview({
   mode,
   cameraStream,
   camera,
+  layout,
+  stacked,
+  onBubbleMove,
+  onBubbleResize,
+  bubbleFrame,
+  bubbleHidden,
   countdownValue,
   onSkipCountdown,
   isFinishing,
@@ -65,7 +87,9 @@ export function RecorderPreview({
   const showPlayback = status === "stopped" && playbackUrl !== null && !previewStream;
   const isActive = status === "recording" || status === "paused";
   const showIdleCamera = !previewStream && !showPlayback && mode === "camera" && cameraStream;
-  const showBubble = !previewStream && !showPlayback && mode === "screen-camera" && cameraStream;
+  const showStacked = !previewStream && !showPlayback && mode === "screen-camera" && layout === "stacked";
+  const showBubble =
+    !previewStream && !showPlayback && mode === "screen-camera" && layout === "bubble" && cameraStream;
 
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-3xl bg-zinc-950 shadow-lg ring-1 ring-zinc-900/10 dark:ring-white/10">
@@ -79,6 +103,8 @@ export function RecorderPreview({
           playsInline
           className="size-full bg-black object-contain"
         />
+      ) : showStacked ? (
+        <StackedPreview cameraStream={cameraStream} camera={camera} layout={stacked} />
       ) : showIdleCamera ? (
         <StreamVideo
           stream={cameraStream}
@@ -88,7 +114,23 @@ export function RecorderPreview({
         <IdleScreen mode={mode} hasCamera={cameraStream !== null} />
       )}
 
-      {showBubble && <CameraBubblePreview stream={cameraStream} camera={camera} />}
+      {showBubble && <CameraBubblePreview
+          stream={cameraStream}
+          camera={camera}
+          onMove={onBubbleMove}
+          onResize={onBubbleResize}
+        />}
+
+      {previewStream && bubbleFrame && !bubbleHidden && !isFinishing && (
+        <DraggableBubble
+          frame={bubbleFrame}
+          position={camera.position}
+          size={camera.size}
+          shape={camera.shape}
+          onMove={onBubbleMove}
+          onResize={onBubbleResize}
+        />
+      )}
 
       {previewStream && isActive && (
         <div className="absolute left-4 top-4 flex items-center gap-2.5 rounded-full bg-black/70 px-4 py-2 text-base font-medium text-white backdrop-blur">

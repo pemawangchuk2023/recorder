@@ -1,40 +1,44 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { DraggableBubble } from "@/app/recorder/_components/draggable-bubble";
 import { StreamVideo } from "@/app/recorder/_components/stream-video";
-import type { RecorderSettings } from "@/app/recorder/_lib/types";
-import { BUBBLE_INSET_RATIO, BUBBLE_SIZE_RATIO, ROUNDED_BUBBLE_RADIUS } from "@/constants/recorder";
+import { cameraFramingStyle } from "@/app/recorder/_lib/bubble-geometry";
+import type { BubblePosition, RecorderSettings } from "@/app/recorder/_lib/types";
 import { cn } from "@/lib/utils";
 
-// The preview frame is 16:9, so a length relative to its height is 9/16 of
-// that relative to its width.
-const HEIGHT_TO_WIDTH = 9 / 16;
+// Before sharing, the screen's shape isn't known yet; most are 16:9.
+const IDLE_FRAME = { width: 1920, height: 1080 };
 
-// Where the compositor will draw the camera bubble, drawn with the same
-// proportions so the settings can be judged before recording.
+// The live camera where the bubble will be recorded, draggable to place it
+// before recording starts.
 export function CameraBubblePreview({
   stream,
   camera,
+  onMove,
+  onResize,
 }: {
   stream: MediaStream;
   camera: RecorderSettings["camera"];
+  onMove: (position: BubblePosition) => void;
+  onResize: (size: number, position: BubblePosition) => void;
 }) {
-  const inset = BUBBLE_INSET_RATIO * 100;
-  const style: CSSProperties = {
-    height: `${BUBBLE_SIZE_RATIO[camera.size] * 100}%`,
-    borderRadius: camera.shape === "circle" ? "50%" : `${ROUNDED_BUBBLE_RADIUS * 100}%`,
-    [camera.corner.startsWith("top") ? "top" : "bottom"]: `${inset}%`,
-    [camera.corner.endsWith("left") ? "left" : "right"]: `${inset * HEIGHT_TO_WIDTH}%`,
-  };
   return (
-    <div
-      className="absolute aspect-square overflow-hidden bg-zinc-800 shadow-xl shadow-black/40 transition-all duration-300"
-      style={style}
+    <DraggableBubble
+      frame={IDLE_FRAME}
+      position={camera.position}
+      size={camera.size}
+      shape={camera.shape}
+      onMove={onMove}
+      onResize={onResize}
     >
-      <StreamVideo
-        stream={stream}
-        className={cn("size-full object-cover", camera.mirror && "-scale-x-100")}
-      />
-    </div>
+      {/* Mirroring flips the whole bubble; framing crops the picture inside it. */}
+      <div className={cn("pointer-events-none size-full overflow-hidden", camera.mirror && "-scale-x-100")}>
+        <StreamVideo
+          stream={stream}
+          className="size-full"
+          style={cameraFramingStyle(camera.framing, camera.mirror)}
+        />
+      </div>
+    </DraggableBubble>
   );
 }

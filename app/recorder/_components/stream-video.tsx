@@ -1,9 +1,17 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 
 // A muted <video> showing a live MediaStream.
-export function StreamVideo({ stream, className }: { stream: MediaStream | null; className?: string }) {
+export function StreamVideo({
+  stream,
+  className,
+  style,
+}: {
+  stream: MediaStream | null;
+  className?: string;
+  style?: CSSProperties;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -17,5 +25,5 @@ export function StreamVideo({ stream, className }: { stream: MediaStream | null;
     }
   }, [stream]);
 
-  return <video ref={videoRef} muted playsInline className={className} />;
+  return <video ref={videoRef} muted playsInline className={className} style={style} />;
 }

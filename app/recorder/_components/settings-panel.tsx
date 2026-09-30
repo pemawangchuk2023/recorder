@@ -1,6 +1,7 @@
 "use client";
 
 import { Captions, Gauge, Mic, Video, Volume2, Clapperboard } from "lucide-react";
+import { CameraFramingControls } from "@/app/recorder/_components/camera-framing-controls";
 import { MicLevelMeter } from "@/app/recorder/_components/mic-level-meter";
 import { ModePicker } from "@/app/recorder/_components/mode-picker";
 import {
@@ -15,14 +16,26 @@ import {
 } from "@/app/recorder/_components/settings-controls";
 import type { CaptionModel } from "@/app/recorder/_hooks/use-caption-model";
 import type { MediaDevice } from "@/app/recorder/_hooks/use-devices";
+import { CORNER_POSITIONS, cornerOf } from "@/app/recorder/_lib/bubble-geometry";
 import { modeOf } from "@/app/recorder/_lib/recording-mode";
-import type { RecorderSettings, RecordingMode, Resolution } from "@/app/recorder/_lib/types";
+import type {
+  RecorderSettings,
+  RecordingMode,
+  Resolution,
+  ScreenCameraLayout,
+} from "@/app/recorder/_lib/types";
 import {
   BUBBLE_CORNERS,
   BUBBLE_SHAPES,
-  BUBBLE_SIZES,
+  BUBBLE_SIZE_PRESETS,
+  BUBBLE_SIZE_RANGE,
   COUNTDOWN_OPTIONS,
   FRAME_RATE_OPTIONS,
+  LAYOUT_DESCRIPTIONS,
+  LAYOUT_OPTIONS,
+  SCREEN_FIT_DESCRIPTIONS,
+  SCREEN_FIT_OPTIONS,
+  STACKED_SPLIT_RANGE,
   MIC_MODES,
   RESOLUTION_OPTIONS,
   VIDEO_CODECS,
@@ -35,6 +48,7 @@ interface SettingsPanelProps {
   disabled: boolean;
   screenSupported: boolean;
   onModeChange: (mode: RecordingMode) => void;
+  onLayoutChange: (layout: ScreenCameraLayout) => void;
   cameras: MediaDevice[];
   cameraError: string | null;
   floatingBubble: { supported: boolean; isOpen: boolean; open: () => void; close: () => void };
@@ -88,6 +102,7 @@ export function SettingsPanel({
   disabled,
   screenSupported,
   onModeChange,
+  onLayoutChange,
   cameras,
   cameraError,
   floatingBubble,
@@ -104,6 +119,9 @@ export function SettingsPanel({
     update({ camera: { ...settings.camera, ...patch } });
   const mode = modeOf(settings);
   const recordsScreen = settings.source === "screen";
+  const stacked = mode === "screen-camera" && settings.layout === "stacked";
+  const updateStacked = (patch: Partial<RecorderSettings["stacked"]>) =>
+    update({ stacked: { ...settings.stacked, ...patch } });
   const captionsImpossible =
     captionModel.status === "unsupported" || captionModel.status === "unavailable";
 
@@ -112,6 +130,39 @@ export function SettingsPanel({
       <Section title="Record" icon={Clapperboard} disabled={disabled}>
         <ModePicker value={mode} screenSupported={screenSupported} onChange={onModeChange} />
         {!screenSupported && <Hint>Screen recording needs Chrome or Edge on a computer.</Hint>}
+        {mode === "screen-camera" && (
+          <>
+            <ChoiceGroup
+              label="Layout"
+              value={settings.layout}
+              options={LAYOUT_OPTIONS}
+              onChange={onLayoutChange}
+            />
+            <Hint>{LAYOUT_DESCRIPTIONS[settings.layout]}</Hint>
+          </>
+        )}
+        {stacked && (
+          <>
+            <Field label={`Screen height · ${Math.round(settings.stacked.split * 100)}% (you get the rest)`}>
+              <input
+                type="range"
+                min={STACKED_SPLIT_RANGE.min}
+                max={STACKED_SPLIT_RANGE.max}
+                step={0.01}
+                value={settings.stacked.split}
+                onChange={(event) => updateStacked({ split: Number(event.target.value) })}
+                className="accent-red-600"
+              />
+            </Field>
+            <ChoiceGroup
+              label="Screen"
+              value={settings.stacked.screenFit}
+              options={SCREEN_FIT_OPTIONS}
+              onChange={(screenFit) => updateStacked({ screenFit })}
+            />
+            <Hint>{SCREEN_FIT_DESCRIPTIONS[settings.stacked.screenFit]}</Hint>
+          </>
+        )}
         <ChoiceGroup
           label="Countdown"
           value={settings.countdown}
@@ -131,7 +182,7 @@ export function SettingsPanel({
           />
           {cameraError && <Hint tone="warning">{cameraError}</Hint>}
 
-          {recordsScreen && floatingBubble.supported && (
+          {recordsScreen && !stacked && floatingBubble.supported && (
             <div className="flex flex-col gap-2">
               <button
                 type="button"
@@ -152,6 +203,13 @@ export function SettingsPanel({
           />
 
           {recordsScreen && (
+            <CameraFramingControls
+              framing={settings.camera.framing}
+              onChange={(framing) => updateCamera({ framing })}
+            />
+          )}
+
+          {recordsScreen && !stacked && (
             <>
               <ChoiceGroup
                 label="Bubble shape"
@@ -161,21 +219,33 @@ export function SettingsPanel({
               />
               <ChoiceGroup
                 label="Bubble size"
-                value={settings.camera.size}
-                options={BUBBLE_SIZES}
+                value={BUBBLE_SIZE_PRESETS.find((preset) => preset.value === settings.camera.size)?.value ?? null}
+                options={BUBBLE_SIZE_PRESETS}
                 onChange={(size) => updateCamera({ size })}
               />
+              <Field label={`Size · ${Math.round(settings.camera.size * 100)}% of the video height`}>
+                <input
+                  type="range"
+                  min={BUBBLE_SIZE_RANGE.min}
+                  max={BUBBLE_SIZE_RANGE.max}
+                  step={0.01}
+                  value={settings.camera.size}
+                  onChange={(event) => updateCamera({ size: Number(event.target.value) })}
+                  className="accent-red-600"
+                />
+              </Field>
+              <Hint>Or drag the white dot on the bubble&apos;s edge in the preview.</Hint>
               <ChoiceGroup
                 label="Bubble position"
-                value={settings.camera.corner}
+                value={cornerOf(settings.camera.position)}
                 options={BUBBLE_CORNERS}
                 columns={2}
-                onChange={(corner) => updateCamera({ corner })}
+                onChange={(corner) => updateCamera({ position: CORNER_POSITIONS[corner] })}
               />
               <Hint>
-                The preview shows where the bubble goes when you share a window or
-                tab. Sharing a whole screen records the floating bubble where you
-                drag it.
+                Or drag the bubble in the preview — before or during recording — to
+                keep it off your slides&apos; text. Sharing a whole screen records the
+                floating bubble wherever you drag it on screen.
               </Hint>
             </>
           )}

@@ -27,6 +27,7 @@ import {
 } from "@/app/recorder/_lib/recording-session";
 import { MIC_CONSTRAINTS } from "@/constants/recorder";
 import type {
+  BubblePosition,
   MicMode,
   RecorderSettings,
   RecorderStatus,
@@ -100,6 +101,9 @@ export interface ScreenRecorder {
   notices: string[];
   previewStream: MediaStream | null;
   micAnalyser: AnalyserNode | null;
+  // Size of the recorded frame when the camera bubble is drawn into it (so it
+  // can be dragged in the preview); null otherwise.
+  bubbleFrame: { width: number; height: number } | null;
   start: (settings: RecorderSettings, options: StartOptions) => Promise<void>;
   stop: () => void;
   pause: () => void;
@@ -110,6 +114,9 @@ export interface ScreenRecorder {
   reset: () => void;
   setMicGain: (value: number) => void;
   setSystemAudioGain: (value: number) => void;
+  setBubblePosition: (position: BubblePosition) => void;
+  setBubbleHidden: (hidden: boolean) => void;
+  setBubbleSize: (size: number) => void;
 }
 
 export function useScreenRecorder(): ScreenRecorder {
@@ -122,6 +129,7 @@ export function useScreenRecorder(): ScreenRecorder {
   const [notices, setNotices] = useState<string[]>([]);
   const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
   const [micAnalyser, setMicAnalyser] = useState<AnalyserNode | null>(null);
+  const [bubbleFrame, setBubbleFrame] = useState<{ width: number; height: number } | null>(null);
 
   const countdown = useCountdown();
   const countdownResolverRef = useRef<(() => void) | null>(null);
@@ -223,6 +231,7 @@ export function useScreenRecorder(): ScreenRecorder {
     audioMixerRef.current = null;
 
     setMicAnalyser(null);
+    setBubbleFrame(null);
     setPreviewStream(null);
     busyRef.current = false;
   }, [stopTimer]);
@@ -512,11 +521,18 @@ export function useScreenRecorder(): ScreenRecorder {
         }
       }
 
-      // Draw the camera bubble into the video, unless this is a camera-only
-      // recording or the floating bubble is already part of a full-screen capture.
+      // The stacked 9:16 layout always puts the camera in its own part of the frame.
+      const stacked = !recordsCamera && cameraTrack !== null && settings.layout === "stacked";
+      // Otherwise draw the camera bubble into the video, unless this is a
+      // camera-only recording or the floating bubble is already part of a
+      // full-screen capture.
       const drawsBubble =
-        !recordsCamera && cameraTrack !== null && !(sharesFullScreen && floatingBubbleOpen);
-      if (!recordsCamera && cameraTrack && !drawsBubble) {
+        !recordsCamera &&
+        !stacked &&
+        cameraTrack !== null &&
+        !(sharesFullScreen && floatingBubbleOpen);
+      const composesCamera = stacked || drawsBubble;
+      if (!recordsCamera && cameraTrack && !composesCamera) {
         cameraTrack.stop();
       }
 
@@ -525,18 +541,20 @@ export function useScreenRecorder(): ScreenRecorder {
       let outputVideoTrack = mainVideoTrack;
       const mirrorsCamera = recordsCamera && settings.camera.mirror;
       const wantsCompositor =
-        useWebCodecs || drawsBubble || mirrorsCamera || (captionsReady && burnIn);
+        useWebCodecs || composesCamera || mirrorsCamera || (captionsReady && burnIn);
       if (wantsCompositor && isVideoCompositorSupported()) {
         try {
           compositorRef.current = createVideoCompositor({
             screenTrack: mainVideoTrack,
-            webcamTrack: drawsBubble ? cameraTrack : null,
+            webcamTrack: composesCamera ? cameraTrack : null,
             maxWidth: width,
             maxHeight: height,
             frameRate: settings.frameRate,
-            corner: settings.camera.corner,
+            position: settings.camera.position,
             size: settings.camera.size,
             shape: settings.camera.shape,
+            framing: settings.camera.framing,
+            stacked: stacked ? settings.stacked : null,
             mirrorWebcam: settings.camera.mirror,
             mirrorScreen: mirrorsCamera,
           });
@@ -546,6 +564,10 @@ export function useScreenRecorder(): ScreenRecorder {
         }
       }
       const compositor = compositorRef.current;
+      setBubbleFrame(drawsBubble && compositor ? { width: compositor.width, height: compositor.height } : null);
+      if (stacked && !compositor) {
+        newNotices.push("This browser can't build the stacked 9:16 layout — recording the screen only.");
+      }
       if (drawsBubble && !compositor) {
         newNotices.push("This browser can't draw the camera bubble into the video — recording the screen only.");
       }
@@ -669,6 +691,18 @@ export function useScreenRecorder(): ScreenRecorder {
     audioMixerRef.current?.setSystemAudioGain(value);
   }, []);
 
+  const setBubblePosition = useCallback((position: BubblePosition) => {
+    compositorRef.current?.setBubblePosition(position);
+  }, []);
+
+  const setBubbleHidden = useCallback((hidden: boolean) => {
+    compositorRef.current?.setBubbleHidden(hidden);
+  }, []);
+
+  const setBubbleSize = useCallback((size: number) => {
+    compositorRef.current?.setBubbleSize(size);
+  }, []);
+
   return {
     status,
     isCountingDown: countdown.isRunning,
@@ -682,6 +716,7 @@ export function useScreenRecorder(): ScreenRecorder {
     notices,
     previewStream,
     micAnalyser,
+    bubbleFrame,
     start,
     stop,
     pause,
@@ -691,5 +726,8 @@ export function useScreenRecorder(): ScreenRecorder {
     reset,
     setMicGain,
     setSystemAudioGain,
+    setBubblePosition,
+    setBubbleHidden,
+    setBubbleSize,
   };
 }

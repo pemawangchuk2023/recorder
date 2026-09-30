@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Pause, Play, RotateCcw, Square, Trash2, X } from "lucide-react";
+import { Eye, EyeOff, Loader2, Pause, Play, RotateCcw, Square, Trash2, X } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { MicLevelMeter } from "@/app/recorder/_components/mic-level-meter";
 import { formatTime } from "@/app/recorder/_lib/format-time";
@@ -17,6 +17,10 @@ interface RecorderControlsProps {
   elapsedSeconds: number;
   // 0–1, or null when no microphone is recording.
   micLevel: number | null;
+  // Whether the camera bubble drawn into the video is hidden; null when
+  // there's no drawn bubble to hide.
+  bubbleHidden: boolean | null;
+  onToggleBubble: () => void;
   onStart: () => void;
   onSkipCountdown: () => void;
   onPause: () => void;
@@ -64,6 +68,8 @@ export function RecorderControls({
   disabled,
   elapsedSeconds,
   micLevel,
+  bubbleHidden,
+  onToggleBubble,
   onStart,
   onSkipCountdown,
   onPause,
@@ -140,6 +146,23 @@ export function RecorderControls({
         {micLevel !== null && <MicLevelMeter level={micLevel} className="hidden sm:flex" />}
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          {bubbleHidden !== null && (
+            <button
+              type="button"
+              onClick={onToggleBubble}
+              disabled={disabled}
+              className={iconButton}
+              aria-label={bubbleHidden ? "Show camera" : "Hide camera"}
+              aria-pressed={bubbleHidden}
+              title={bubbleHidden ? "Show camera" : "Hide camera"}
+            >
+              {bubbleHidden ? (
+                <Eye className="size-5" aria-hidden="true" />
+              ) : (
+                <EyeOff className="size-5" aria-hidden="true" />
+              )}
+            </button>
+          )}
           <button
             type="button"
             onClick={onRestart}

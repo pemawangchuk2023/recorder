@@ -2,13 +2,15 @@
 
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { cameraFramingStyle } from "@/app/recorder/_lib/bubble-geometry";
 import { formatTime } from "@/app/recorder/_lib/format-time";
-import type { RecorderStatus } from "@/app/recorder/_lib/types";
+import type { CameraFraming, RecorderStatus } from "@/app/recorder/_lib/types";
 
 interface FloatingBubbleProps {
   pipWindow: Window;
   stream: MediaStream | null;
   mirror: boolean;
+  framing: CameraFraming;
   error: string | null;
   status: RecorderStatus;
   elapsedSeconds: number;
@@ -21,6 +23,7 @@ export function FloatingBubble({
   pipWindow,
   stream,
   mirror,
+  framing,
   error,
   status,
   elapsedSeconds,
@@ -45,7 +48,15 @@ export function FloatingBubble({
 
   return createPortal(
     <div className="bubble">
-      <video ref={videoRef} className={mirror ? "camera mirrored" : "camera"} muted playsInline />
+      <div className={mirror ? "frame mirrored" : "frame"}>
+        <video
+          ref={videoRef}
+          className="camera"
+          style={cameraFramingStyle(framing, mirror)}
+          muted
+          playsInline
+        />
+      </div>
       {!stream && <p className="message">{error ?? "Starting camera…"}</p>}
       {isActive && (
         <div className="controls">

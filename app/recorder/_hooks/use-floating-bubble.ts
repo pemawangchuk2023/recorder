@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
-const BUBBLE_SIZE = 240;
+// Chrome lets the user resize this window by its edges; this is where it starts.
+const BUBBLE_SIZE = 320;
 
 // The window is a separate document, so it gets its own small stylesheet.
 // Chrome always draws this window as a rectangle with its own title bar (a
@@ -9,6 +10,7 @@ const BUBBLE_CSS = `
   html, body { margin: 0; height: 100%; overflow: hidden; background: #18181b;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
   .bubble { position: relative; height: 100%; }
+  .frame { width: 100%; height: 100%; overflow: hidden; }
   .camera { display: block; width: 100%; height: 100%; object-fit: cover; }
   .mirrored { transform: scaleX(-1); }
   .message { position: absolute; inset: 0; display: grid; place-items: center; margin: 0;

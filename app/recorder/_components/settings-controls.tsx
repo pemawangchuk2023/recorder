@@ -109,7 +109,8 @@ export function ChoiceGroup<T extends string | number>({
   columns,
 }: {
   label: string;
-  value: T;
+  // null when none of the options applies, e.g. a dragged bubble.
+  value: T | null;
   options: readonly { value: T; label: string; disabled?: boolean }[];
   onChange: (value: T) => void;
   columns?: number;

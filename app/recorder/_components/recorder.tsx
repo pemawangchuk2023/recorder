@@ -27,8 +27,10 @@ import {
 } from "@/app/recorder/_lib/recording-format";
 import { modeOf, withMode } from "@/app/recorder/_lib/recording-mode";
 import type {
+  BubblePosition,
   RecorderSettings,
   RecordingMode,
+  ScreenCameraLayout,
   TranscriptSegment,
 } from "@/app/recorder/_lib/types";
 import { cn } from "@/lib/utils";
@@ -109,7 +111,24 @@ export function Recorder() {
   // Nothing is recorded yet during the countdown, so there's nothing to confirm.
   const handleDiscard = () => (isActive ? askToConfirm("discard") : recorder.discard());
 
+  // Hides the drawn camera bubble mid-take, e.g. for a slide full of text.
+  const [bubbleHidden, setBubbleHidden] = useState(false);
+  const toggleBubble = () => {
+    recorder.setBubbleHidden(!bubbleHidden);
+    setBubbleHidden(!bubbleHidden);
+  };
+  const handleBubbleMove = (position: BubblePosition) => {
+    setSettings((prev) => ({ ...prev, camera: { ...prev.camera, position } }));
+    recorder.setBubblePosition(position);
+  };
+  const handleBubbleResize = (size: number, position: BubblePosition) => {
+    setSettings((prev) => ({ ...prev, camera: { ...prev.camera, size, position } }));
+    recorder.setBubbleSize(size);
+    recorder.setBubblePosition(position);
+  };
+
   const startRecording = () => {
+    setBubbleHidden(false);
     setEdited(null);
     setConfirmAction(null);
     void recorder.start(settings, {
@@ -143,7 +162,18 @@ export function Recorder() {
   // The floating bubble can only open from a click, so it's opened right here.
   const handleModeChange = (mode: RecordingMode) => {
     setSettings((prev) => withMode(prev, mode));
-    if (mode === "screen-camera" && bubbleSupported) {
+    if (mode === "screen-camera" && settings.layout === "bubble" && bubbleSupported) {
+      bubble.open();
+    } else {
+      bubble.close();
+    }
+  };
+
+  // The floating bubble belongs to the bubble layout; in the stacked layout
+  // it would only show up a second time inside a shared screen.
+  const handleLayoutChange = (layout: ScreenCameraLayout) => {
+    setSettings((prev) => ({ ...prev, layout }));
+    if (layout === "bubble" && bubbleSupported) {
       bubble.open();
     } else {
       bubble.close();
@@ -190,6 +220,12 @@ export function Recorder() {
           mode={modeOf(settings)}
           cameraStream={camera.stream}
           camera={settings.camera}
+          layout={settings.layout}
+          stacked={settings.stacked}
+          onBubbleMove={handleBubbleMove}
+          onBubbleResize={handleBubbleResize}
+          bubbleFrame={recorder.bubbleFrame}
+          bubbleHidden={bubbleHidden}
           countdownValue={recorder.countdownValue}
           onSkipCountdown={recorder.skipCountdown}
           isFinishing={recorder.isFinishing}
@@ -223,6 +259,8 @@ export function Recorder() {
           disabled={!isSupported}
           elapsedSeconds={recorder.elapsedSeconds}
           micLevel={recorder.micAnalyser ? micLevel : null}
+          bubbleHidden={recorder.bubbleFrame ? bubbleHidden : null}
+          onToggleBubble={toggleBubble}
           onStart={startRecording}
           onSkipCountdown={recorder.skipCountdown}
           onPause={recorder.pause}
@@ -242,6 +280,7 @@ export function Recorder() {
         disabled={!isIdle}
         screenSupported={screenSupported}
         onModeChange={handleModeChange}
+        onLayoutChange={handleLayoutChange}
         cameras={devices.cameras}
         cameraError={camera.error}
         floatingBubble={{
@@ -266,6 +305,7 @@ export function Recorder() {
           pipWindow={bubble.pipWindow}
           stream={camera.stream}
           mirror={settings.camera.mirror}
+          framing={settings.camera.framing}
           error={camera.error}
           status={recorder.status}
           elapsedSeconds={recorder.elapsedSeconds}

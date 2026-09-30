@@ -1,14 +1,13 @@
+import { bubbleRect, cameraCrop } from "@/app/recorder/_lib/bubble-geometry";
+import { createStackedPainter, stackedFrameSize } from "@/app/recorder/_lib/stacked-layout";
 import type {
-  BubbleCorner,
+  BubblePosition,
   BubbleShape,
-  BubbleSize,
+  CameraFraming,
   FrameRate,
+  StackedLayout,
 } from "@/app/recorder/_lib/types";
-import {
-  BUBBLE_INSET_RATIO,
-  BUBBLE_SIZE_RATIO,
-  ROUNDED_BUBBLE_RADIUS,
-} from "@/constants/recorder";
+import { ROUNDED_BUBBLE_RADIUS } from "@/constants/recorder";
 
 export interface VideoCompositor {
   videoTrack: MediaStreamVideoTrack;
@@ -16,6 +15,10 @@ export interface VideoCompositor {
   width: number;
   height: number;
   setCaption: (text: string) => void;
+  // Move or hide the camera bubble mid-recording, e.g. off a slide's text.
+  setBubblePosition: (position: BubblePosition) => void;
+  setBubbleHidden: (hidden: boolean) => void;
+  setBubbleSize: (size: number) => void;
   stop: () => void;
 }
 
@@ -25,9 +28,14 @@ interface CreateVideoCompositorOptions {
   maxWidth: number;
   maxHeight: number;
   frameRate: FrameRate;
-  corner: BubbleCorner;
-  size: BubbleSize;
+  position: BubblePosition;
+  // Diameter as a fraction of the frame height.
+  size: number;
   shape: BubbleShape;
+  framing: CameraFraming;
+  // Set for the vertical screen-over-camera layout; the bubble options are
+  // then unused.
+  stacked: StackedLayout | null;
   // Mirror the camera bubble, or the whole picture when it is the camera.
   mirrorWebcam: boolean;
   mirrorScreen: boolean;
@@ -127,13 +135,12 @@ function wrapLastLines(
 export function createVideoCompositor(
   options: CreateVideoCompositorOptions
 ): VideoCompositor {
-  const { screenTrack, webcamTrack, frameRate, corner, size, shape, mirrorWebcam, mirrorScreen } =
+  const { screenTrack, webcamTrack, frameRate, shape, framing, stacked, mirrorWebcam, mirrorScreen } =
     options;
-  const { width, height } = outputSize(
-    screenTrack,
-    options.maxWidth,
-    options.maxHeight
-  );
+  let size = options.size;
+  const { width, height } = stacked
+    ? stackedFrameSize(options.maxWidth, options.maxHeight)
+    : outputSize(screenTrack, options.maxWidth, options.maxHeight);
 
   const canvas = new OffscreenCanvas(width, height);
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -180,36 +187,70 @@ export function createVideoCompositor(
       )
     : null;
 
-  // Camera bubble geometry: a circle or rounded square in the chosen corner.
-  const diameter = Math.round(height * BUBBLE_SIZE_RATIO[size]);
-  const radius = diameter / 2;
-  const inset = Math.round(height * BUBBLE_INSET_RATIO);
-  const bubbleX = corner.endsWith("left") ? inset : width - inset - diameter;
-  const bubbleY = corner.startsWith("top") ? inset : height - inset - diameter;
-  const centerX = bubbleX + radius;
-  const centerY = bubbleY + radius;
+  // Camera bubble geometry: a circle or rounded square, movable while recording.
+  let bubbleHidden = false;
+  let bubbleX = 0;
+  let bubbleY = 0;
+  let diameter = 0;
+  let radius = 0;
+  let centerX = 0;
+  let centerY = 0;
 
-  // Caption geometry: centered near the bottom, kept clear of a bottom-corner
-  // bubble — beside it when the frame is wide enough, above it otherwise.
-  const fontSize = Math.max(16, Math.round(height * 0.042));
+  // Caption geometry: centered near the bottom, kept clear of the bubble —
+  // beside it when there's room, above it otherwise.
+  // Sized from the short side, so a vertical video gets phone-sized captions.
+  const fontSize = Math.max(16, Math.round(Math.min(width, height) * 0.042));
   const captionFont = `600 ${fontSize}px ${CAPTION_FONT_FAMILY}`;
   const lineHeight = Math.round(fontSize * 1.3);
   const paddingX = Math.round(fontSize * 0.7);
   const paddingY = Math.round(fontSize * 0.4);
   const gap = Math.round(height * 0.02);
-  let captionBottom = height - Math.round(height * 0.06);
+  const defaultCaptionBottom = height - Math.round(height * 0.06);
   // ~50 characters per line at most, like broadcast subtitles.
-  let captionMaxWidth = Math.min(width * 0.8, fontSize * 26);
-  if (webcamTrack && corner.startsWith("bottom")) {
-    const clearWidth = width - 2 * (inset + diameter + gap);
-    if (clearWidth >= width * 0.5) {
-      captionMaxWidth = Math.min(captionMaxWidth, clearWidth);
-    } else {
-      captionBottom = bubbleY - gap;
-    }
-  }
+  const defaultCaptionMaxWidth = Math.min(width * 0.8, fontSize * 26);
+  const captionBandTop =
+    defaultCaptionBottom - CAPTION_MAX_LINES * lineHeight - paddingY * 2 - gap;
+  let captionBottom = defaultCaptionBottom;
+  let captionMaxWidth = defaultCaptionMaxWidth;
+  let captionText = "";
   let captionLines: string[] = [];
   let captionBoxWidth = 0;
+
+  const layoutCaption = () => {
+    ctx.font = captionFont;
+    captionLines = captionText
+      ? wrapLastLines(ctx, captionText, captionMaxWidth - paddingX * 2, CAPTION_MAX_LINES)
+      : [];
+    captionBoxWidth = captionLines.length
+      ? Math.max(...captionLines.map((line) => ctx.measureText(line).width)) + paddingX * 2
+      : 0;
+  };
+
+  const placeBubble = (position: BubblePosition) => {
+    const rect = bubbleRect(position, size, width, height);
+    ({ left: bubbleX, top: bubbleY, diameter } = rect);
+    radius = diameter / 2;
+    centerX = bubbleX + radius;
+    centerY = bubbleY + radius;
+
+    captionBottom = defaultCaptionBottom;
+    captionMaxWidth = defaultCaptionMaxWidth;
+    const overlapsCaptions =
+      webcamTrack && !stacked && !bubbleHidden && bubbleY + diameter > captionBandTop;
+    if (overlapsCaptions) {
+      // Room on each side of the centre line, up to the bubble's near edge.
+      const halfClear =
+        centerX < width / 2 ? width / 2 - (bubbleX + diameter) - gap : bubbleX - gap - width / 2;
+      if (halfClear * 2 >= width * 0.5) {
+        captionMaxWidth = Math.min(defaultCaptionMaxWidth, halfClear * 2);
+      } else {
+        captionBottom = bubbleY - gap;
+      }
+    }
+    layoutCaption();
+  };
+  let bubblePosition = options.position;
+  placeBubble(bubblePosition);
 
   const traceBubble = () => {
     ctx.beginPath();
@@ -231,7 +272,7 @@ export function createVideoCompositor(
     ctx.fill();
     ctx.restore();
 
-    const side = Math.min(webcam.displayWidth, webcam.displayHeight);
+    const { sx, sy, sw, sh } = cameraCrop(webcam.displayWidth, webcam.displayHeight, framing, mirrorWebcam);
     ctx.save();
     traceBubble();
     ctx.clip();
@@ -241,10 +282,10 @@ export function createVideoCompositor(
     }
     ctx.drawImage(
       webcam,
-      (webcam.displayWidth - side) / 2,
-      (webcam.displayHeight - side) / 2,
-      side,
-      side,
+      sx,
+      sy,
+      sw,
+      sh,
       centerX - radius,
       centerY - radius,
       diameter,
@@ -272,7 +313,18 @@ export function createVideoCompositor(
     });
   };
 
+  const stackedPainter = stacked
+    ? createStackedPainter(ctx, width, height, { layout: stacked, framing, mirrorWebcam })
+    : null;
+
   const draw = (screen: VideoFrame) => {
+    if (stackedPainter) {
+      stackedPainter.draw(screen, webcamFrame);
+      if (captionLines.length > 0) {
+        drawCaption();
+      }
+      return;
+    }
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, width, height);
 
@@ -296,7 +348,7 @@ export function createVideoCompositor(
     );
     ctx.restore();
 
-    if (webcamFrame) {
+    if (webcamFrame && !bubbleHidden) {
       drawBubble(webcamFrame);
     }
     if (captionLines.length > 0) {
@@ -325,21 +377,20 @@ export function createVideoCompositor(
     width,
     height,
     setCaption(text: string) {
-      const trimmed = text.trim();
-      if (!trimmed) {
-        captionLines = [];
-        return;
-      }
-      ctx.font = captionFont;
-      captionLines = wrapLastLines(
-        ctx,
-        trimmed,
-        captionMaxWidth - paddingX * 2,
-        CAPTION_MAX_LINES
-      );
-      captionBoxWidth =
-        Math.max(...captionLines.map((line) => ctx.measureText(line).width)) +
-        paddingX * 2;
+      captionText = text.trim();
+      layoutCaption();
+    },
+    setBubblePosition(position: BubblePosition) {
+      bubblePosition = position;
+      placeBubble(position);
+    },
+    setBubbleSize(next: number) {
+      size = next;
+      placeBubble(bubblePosition);
+    },
+    setBubbleHidden(hidden: boolean) {
+      bubbleHidden = hidden;
+      placeBubble(bubblePosition);
     },
     stop() {
       if (stopped) {
