@@ -8,6 +8,7 @@ import type { RecorderStatus } from "@/app/recorder/_lib/types";
 interface FloatingBubbleProps {
   pipWindow: Window;
   stream: MediaStream | null;
+  mirror: boolean;
   error: string | null;
   status: RecorderStatus;
   elapsedSeconds: number;
@@ -19,6 +20,7 @@ interface FloatingBubbleProps {
 export function FloatingBubble({
   pipWindow,
   stream,
+  mirror,
   error,
   status,
   elapsedSeconds,
@@ -43,7 +45,7 @@ export function FloatingBubble({
 
   return createPortal(
     <div className="bubble">
-      <video ref={videoRef} className="camera" muted playsInline />
+      <video ref={videoRef} className={mirror ? "camera mirrored" : "camera"} muted playsInline />
       {!stream && <p className="message">{error ?? "Starting camera…"}</p>}
       {isActive && (
         <div className="controls">

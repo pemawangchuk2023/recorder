@@ -5,6 +5,7 @@ import type {
   FrameRate,
   Resolution,
   VideoCodecChoice,
+  VideoQuality,
 } from "@/app/recorder/_lib/types";
 
 // One take: encodes the given tracks into an MP4 from start() until finish().
@@ -30,6 +31,7 @@ export interface RecordingSessionOptions {
   codec: VideoCodecChoice;
   resolution: Resolution;
   frameRate: FrameRate;
+  quality: VideoQuality;
   // Set when the video comes from the compositor at this fixed size; only
   // then is WebCodecs used.
   compositedSize: { width: number; height: number } | null;

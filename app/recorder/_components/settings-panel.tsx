@@ -1,29 +1,42 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { Captions, Gauge, Mic, Video, Volume2, Clapperboard } from "lucide-react";
+import { MicLevelMeter } from "@/app/recorder/_components/mic-level-meter";
+import { ModePicker } from "@/app/recorder/_components/mode-picker";
+import {
+  ChoiceGroup,
+  DeviceSelect,
+  Field,
+  Hint,
+  Section,
+  Slider,
+  Switch,
+  control,
+} from "@/app/recorder/_components/settings-controls";
 import type { CaptionModel } from "@/app/recorder/_hooks/use-caption-model";
 import type { MediaDevice } from "@/app/recorder/_hooks/use-devices";
-import { MIC_MODES, VIDEO_CODECS } from "@/constants/recorder";
-import type {
-  BubbleCorner,
-  BubbleSize,
-  FrameRate,
-  MicMode,
-  RecorderSettings,
-  RecordingSource,
-  Resolution,
-  VideoCodecChoice,
-} from "@/app/recorder/_lib/types";
+import { modeOf } from "@/app/recorder/_lib/recording-mode";
+import type { RecorderSettings, RecordingMode, Resolution } from "@/app/recorder/_lib/types";
+import {
+  BUBBLE_CORNERS,
+  BUBBLE_SHAPES,
+  BUBBLE_SIZES,
+  COUNTDOWN_OPTIONS,
+  FRAME_RATE_OPTIONS,
+  MIC_MODES,
+  RESOLUTION_OPTIONS,
+  VIDEO_CODECS,
+  VIDEO_QUALITIES,
+} from "@/constants/recorder";
 
 interface SettingsPanelProps {
   settings: RecorderSettings;
   onChange: (settings: RecorderSettings) => void;
   disabled: boolean;
   screenSupported: boolean;
-  onSourceChange: (source: RecordingSource) => void;
+  onModeChange: (mode: RecordingMode) => void;
   cameras: MediaDevice[];
   cameraError: string | null;
-  onCameraToggle: (enabled: boolean) => void;
   floatingBubble: { supported: boolean; isOpen: boolean; open: () => void; close: () => void };
   microphones: MediaDevice[];
   micLevel: number;
@@ -32,106 +45,23 @@ interface SettingsPanelProps {
   captionModel: CaptionModel;
   onCaptionsToggle: (enabled: boolean) => void;
   // Codecs this computer can record; a choice is shown when there's more than one.
-  codecs: VideoCodecChoice[];
+  codecs: RecorderSettings["codec"][];
 }
 
-const SOURCES: { value: RecordingSource; label: string }[] = [
-  { value: "screen", label: "Screen" },
-  { value: "camera", label: "Camera only" },
-];
+const MIC_MODE_OPTIONS = (Object.keys(MIC_MODES) as (keyof typeof MIC_MODES)[]).map((mode) => ({
+  value: mode,
+  label: MIC_MODES[mode].label,
+}));
 
-const CORNERS: { value: BubbleCorner; label: string }[] = [
-  { value: "top-left", label: "Top left" },
-  { value: "top-right", label: "Top right" },
-  { value: "bottom-left", label: "Bottom left" },
-  { value: "bottom-right", label: "Bottom right" },
-];
+const QUALITY_OPTIONS = (Object.keys(VIDEO_QUALITIES) as (keyof typeof VIDEO_QUALITIES)[]).map(
+  (quality) => ({ value: quality, label: VIDEO_QUALITIES[quality].label })
+);
 
-const control =
-  "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-base";
-const hint = "text-base leading-relaxed text-muted-foreground";
+// Above 1080p, only screens with that many pixels gain anything.
+const HIGH_RESOLUTIONS: Resolution[] = ["1440p", "2160p"];
 
-function choiceClass(selected: boolean): string {
-  return `rounded-xl border px-3 py-2.5 text-base font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-    selected
-      ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"
-      : "border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-  }`;
-}
-
-function Section({ title, disabled, children }: { title: string; disabled: boolean; children: ReactNode }) {
-  return (
-    <fieldset
-      disabled={disabled}
-      className="flex flex-col gap-4 rounded-3xl border bg-card p-6 disabled:opacity-60"
-    >
-      <legend className="px-1.5 text-lg font-semibold">{title}</legend>
-      {children}
-    </fieldset>
-  );
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="flex flex-col gap-2 text-base text-zinc-700 dark:text-zinc-300">
-      {label}
-      {children}
-    </label>
-  );
-}
-
-function Toggle({
-  label,
-  checked,
-  disabled,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <label className="flex items-center justify-between gap-4 text-base font-medium text-zinc-800 dark:text-zinc-200">
-      {label}
-      <input
-        type="checkbox"
-        className="h-5 w-5 shrink-0 accent-red-600"
-        checked={checked}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-    </label>
-  );
-}
-
-function DeviceSelect({
-  devices,
-  value,
-  onOpen,
-  onChange,
-}: {
-  devices: MediaDevice[];
-  value: string | undefined;
-  onOpen: () => void;
-  onChange: (deviceId: string | undefined) => void;
-}) {
-  return (
-    <select
-      className={control}
-      value={value ?? ""}
-      onFocus={onOpen}
-      onChange={(event) => onChange(event.target.value || undefined)}
-    >
-      <option value="">System default</option>
-      {devices.map((device) => (
-        <option key={device.deviceId} value={device.deviceId}>
-          {device.label}
-        </option>
-      ))}
-    </select>
-  );
-}
+const darkButton =
+  "self-start rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200";
 
 function captionStatusText({ status, installFailed }: CaptionModel): string {
   switch (status) {
@@ -157,10 +87,9 @@ export function SettingsPanel({
   onChange,
   disabled,
   screenSupported,
-  onSourceChange,
+  onModeChange,
   cameras,
   cameraError,
-  onCameraToggle,
   floatingBubble,
   microphones,
   micLevel,
@@ -171,273 +100,230 @@ export function SettingsPanel({
   codecs,
 }: SettingsPanelProps) {
   const update = (patch: Partial<RecorderSettings>) => onChange({ ...settings, ...patch });
+  const updateCamera = (patch: Partial<RecorderSettings["camera"]>) =>
+    update({ camera: { ...settings.camera, ...patch } });
+  const mode = modeOf(settings);
   const recordsScreen = settings.source === "screen";
   const captionsImpossible =
     captionModel.status === "unsupported" || captionModel.status === "unavailable";
 
   return (
-    <aside className="flex flex-col gap-5">
-      <Section title="Record" disabled={disabled}>
-        <div className="grid grid-cols-2 gap-2">
-          {SOURCES.map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={settings.source === value}
-              disabled={value === "screen" && !screenSupported}
-              onClick={() => onSourceChange(value)}
-              className={choiceClass(settings.source === value)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {!screenSupported && (
-          <p className={hint}>Screen recording needs Chrome or Edge on a computer.</p>
-        )}
-      </Section>
-
-      <Section title="Camera" disabled={disabled}>
-        <Toggle label="Use camera" checked={settings.camera.enabled} onChange={onCameraToggle} />
-        {settings.camera.enabled && (
-          <>
-            <Field label="Camera">
-              <DeviceSelect
-                devices={cameras}
-                value={settings.camera.deviceId}
-                onOpen={onDeviceListOpen}
-                onChange={(deviceId) => update({ camera: { ...settings.camera, deviceId } })}
-              />
-            </Field>
-            {cameraError && (
-              <p className="text-base text-amber-700 dark:text-amber-400">{cameraError}</p>
-            )}
-
-            {recordsScreen && floatingBubble.supported && (
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={floatingBubble.isOpen ? floatingBubble.close : floatingBubble.open}
-                  className="self-start rounded-full bg-zinc-900 px-5 py-2.5 text-base font-semibold text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
-                >
-                  {floatingBubble.isOpen ? "Hide floating bubble" : "Show floating bubble"}
-                </button>
-                <p className={hint}>
-                  Floats on top of every app so you can see yourself. Drag it anywhere.
-                </p>
-              </div>
-            )}
-
-            {recordsScreen && (
-              <>
-                <p className="text-base font-medium text-zinc-800 dark:text-zinc-200">
-                  Bubble position when you share a window or tab
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {CORNERS.map(({ value, label }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      aria-pressed={settings.camera.corner === value}
-                      onClick={() => update({ camera: { ...settings.camera, corner: value } })}
-                      className={choiceClass(settings.camera.corner === value)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <Field label="Bubble size">
-                  <select
-                    className={control}
-                    value={settings.camera.size}
-                    onChange={(event) =>
-                      update({ camera: { ...settings.camera, size: event.target.value as BubbleSize } })
-                    }
-                  >
-                    <option value="small">Small</option>
-                    <option value="medium">Medium</option>
-                    <option value="large">Large</option>
-                  </select>
-                </Field>
-              </>
-            )}
-          </>
-        )}
-      </Section>
-
-      <Section title="Microphone" disabled={disabled}>
-        <Toggle label="Include microphone" checked={settings.mic.enabled} onChange={onMicToggle} />
-        {settings.mic.enabled && (
-          <>
-            <Field label="Input device">
-              <DeviceSelect
-                devices={microphones}
-                value={settings.mic.deviceId}
-                onOpen={onDeviceListOpen}
-                onChange={(deviceId) => update({ mic: { ...settings.mic, deviceId } })}
-              />
-            </Field>
-            <div className="flex flex-col gap-2 text-base text-zinc-700 dark:text-zinc-300">
-              Sound
-              <div className="grid grid-cols-2 gap-2">
-                {(Object.keys(MIC_MODES) as MicMode[]).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    aria-pressed={settings.mic.mode === mode}
-                    onClick={() => update({ mic: { ...settings.mic, mode } })}
-                    className={choiceClass(settings.mic.mode === mode)}
-                  >
-                    {MIC_MODES[mode].label}
-                  </button>
-                ))}
-              </div>
-              <p className={hint}>{MIC_MODES[settings.mic.mode].description}</p>
-            </div>
-            <Field label="Microphone volume">
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.01}
-                className="accent-red-600"
-                value={settings.mic.gain}
-                onChange={(event) =>
-                  update({ mic: { ...settings.mic, gain: Number(event.target.value) } })
-                }
-              />
-            </Field>
-            <div className="flex flex-col gap-2 text-base text-zinc-700 dark:text-zinc-300">
-              Input level
-              <div className="h-3 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-                <div
-                  className="h-full rounded-full bg-emerald-500 transition-[width] duration-75"
-                  style={{ width: `${Math.min(1, micLevel) * 100}%` }}
-                />
-              </div>
-            </div>
-          </>
-        )}
-      </Section>
-
-      <Section title="Captions" disabled={disabled}>
-        <Toggle
-          label="Live English captions and transcript"
-          checked={settings.captions.enabled && !captionsImpossible}
-          disabled={captionsImpossible}
-          onChange={onCaptionsToggle}
+    <aside className="flex flex-col gap-4">
+      <Section title="Record" icon={Clapperboard} disabled={disabled}>
+        <ModePicker value={mode} screenSupported={screenSupported} onChange={onModeChange} />
+        {!screenSupported && <Hint>Screen recording needs Chrome or Edge on a computer.</Hint>}
+        <ChoiceGroup
+          label="Countdown"
+          value={settings.countdown}
+          options={COUNTDOWN_OPTIONS}
+          onChange={(countdown) => update({ countdown })}
         />
-        {settings.captions.enabled && !captionsImpossible && (
-          <>
-            <Toggle
-              label="Also show captions inside the video"
-              checked={settings.captions.burnIn}
-              onChange={(burnIn) => update({ captions: { ...settings.captions, burnIn } })}
-            />
-            <p className={hint}>
-              After recording you can read the transcript, jump to any line, and
-              download a .srt caption file for YouTube or your video editor.
-            </p>
-            {(captionModel.status === "downloadable" || captionModel.installFailed) && (
+      </Section>
+
+      {settings.camera.enabled && (
+        <Section title="Camera" icon={Video} disabled={disabled}>
+          <DeviceSelect
+            label="Camera"
+            devices={cameras}
+            value={settings.camera.deviceId}
+            onOpen={onDeviceListOpen}
+            onChange={(deviceId) => updateCamera({ deviceId })}
+          />
+          {cameraError && <Hint tone="warning">{cameraError}</Hint>}
+
+          {recordsScreen && floatingBubble.supported && (
+            <div className="flex flex-col gap-2">
               <button
                 type="button"
-                onClick={captionModel.install}
-                className="self-start rounded-full bg-zinc-900 px-5 py-2.5 text-base font-semibold text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+                onClick={floatingBubble.isOpen ? floatingBubble.close : floatingBubble.open}
+                className={darkButton}
               >
-                Set up English captions
+                {floatingBubble.isOpen ? "Hide floating bubble" : "Show floating bubble"}
               </button>
-            )}
-            {!settings.mic.enabled && (
-              <p className="text-base text-amber-700 dark:text-amber-400">
-                Turn on the microphone — captions come from your voice.
-              </p>
-            )}
+              <Hint>Floats over every app so you can see yourself. Drag it anywhere.</Hint>
+            </div>
+          )}
+
+          <Switch
+            label="Mirror camera"
+            description="Flip left and right, like looking in a mirror."
+            checked={settings.camera.mirror}
+            onChange={(mirror) => updateCamera({ mirror })}
+          />
+
+          {recordsScreen && (
+            <>
+              <ChoiceGroup
+                label="Bubble shape"
+                value={settings.camera.shape}
+                options={BUBBLE_SHAPES}
+                onChange={(shape) => updateCamera({ shape })}
+              />
+              <ChoiceGroup
+                label="Bubble size"
+                value={settings.camera.size}
+                options={BUBBLE_SIZES}
+                onChange={(size) => updateCamera({ size })}
+              />
+              <ChoiceGroup
+                label="Bubble position"
+                value={settings.camera.corner}
+                options={BUBBLE_CORNERS}
+                columns={2}
+                onChange={(corner) => updateCamera({ corner })}
+              />
+              <Hint>
+                The preview shows where the bubble goes when you share a window or
+                tab. Sharing a whole screen records the floating bubble where you
+                drag it.
+              </Hint>
+            </>
+          )}
+        </Section>
+      )}
+
+      <Section title="Microphone" icon={Mic} disabled={disabled}>
+        <Switch label="Include microphone" checked={settings.mic.enabled} onChange={onMicToggle} />
+        {settings.mic.enabled && (
+          <>
+            <DeviceSelect
+              label="Input device"
+              devices={microphones}
+              value={settings.mic.deviceId}
+              onOpen={onDeviceListOpen}
+              onChange={(deviceId) => update({ mic: { ...settings.mic, deviceId } })}
+            />
+            <ChoiceGroup
+              label="Sound"
+              value={settings.mic.mode}
+              options={MIC_MODE_OPTIONS}
+              onChange={(micMode) => update({ mic: { ...settings.mic, mode: micMode } })}
+            />
+            <Hint>{MIC_MODES[settings.mic.mode].description}</Hint>
+            <Slider
+              label="Microphone volume"
+              value={settings.mic.gain}
+              onChange={(gain) => update({ mic: { ...settings.mic, gain } })}
+            />
+            <MicLevelMeter level={micLevel} />
           </>
         )}
-        <p className={hint}>{captionStatusText(captionModel)}</p>
       </Section>
 
       {recordsScreen && (
-        <Section title="Computer sound" disabled={disabled}>
-          <Toggle
+        <Section title="Computer sound" icon={Volume2} disabled={disabled}>
+          <Switch
             label="Record computer sound"
             checked={settings.systemAudio.enabled}
             onChange={(enabled) => update({ systemAudio: { ...settings.systemAudio, enabled } })}
           />
           {settings.systemAudio.enabled ? (
             <>
-              <Field label="Volume">
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  className="accent-red-600"
-                  value={settings.systemAudio.gain}
-                  onChange={(event) =>
-                    update({ systemAudio: { ...settings.systemAudio, gain: Number(event.target.value) } })
-                  }
-                />
-              </Field>
-              <p className={hint}>
+              <Slider
+                label="Volume"
+                value={settings.systemAudio.gain}
+                onChange={(gain) => update({ systemAudio: { ...settings.systemAudio, gain } })}
+              />
+              <Hint>
                 When you press Start, Chrome opens on its list of tabs: pick the tab
                 playing the sound and keep “Also share tab audio” on. Sharing your
                 whole screen includes sound only if Chrome offers “Also share system
                 audio”. Talking too? Wear headphones, so the microphone doesn&apos;t
                 pick up the speakers a second time.
-              </p>
+              </Hint>
             </>
           ) : (
-            <p className={hint}>
+            <Hint>
               Off: only your voice is recorded. Turn on to include music, videos or
               anything else playing on your computer — recorded directly, so it
               sounds exactly like the original.
-            </p>
+            </Hint>
           )}
         </Section>
       )}
 
-      <Section title="Quality" disabled={disabled}>
-        <div className="grid grid-cols-2 gap-4">
+      <Section title="Captions" icon={Captions} disabled={disabled}>
+        <Switch
+          label="Live English captions"
+          description="Plus a transcript you can search and download."
+          checked={settings.captions.enabled && !captionsImpossible}
+          disabled={captionsImpossible}
+          onChange={onCaptionsToggle}
+        />
+        {settings.captions.enabled && !captionsImpossible && (
+          <>
+            <Switch
+              label="Show captions inside the video"
+              checked={settings.captions.burnIn}
+              onChange={(burnIn) => update({ captions: { ...settings.captions, burnIn } })}
+            />
+            {(captionModel.status === "downloadable" || captionModel.installFailed) && (
+              <button type="button" onClick={captionModel.install} className={darkButton}>
+                Set up English captions
+              </button>
+            )}
+            {!settings.mic.enabled && (
+              <Hint tone="warning">Turn on the microphone — captions come from your voice.</Hint>
+            )}
+          </>
+        )}
+        <Hint>{captionStatusText(captionModel)}</Hint>
+      </Section>
+
+      <Section title="Quality" icon={Gauge} disabled={disabled}>
+        <div className="grid grid-cols-2 gap-3">
           <Field label="Resolution">
             <select
               className={control}
               value={settings.resolution}
               onChange={(event) => update({ resolution: event.target.value as Resolution })}
             >
-              <option value="720p">720p</option>
-              <option value="1080p">1080p</option>
+              {RESOLUTION_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </Field>
           <Field label="Frame rate">
             <select
               className={control}
               value={settings.frameRate}
-              onChange={(event) => update({ frameRate: Number(event.target.value) as FrameRate })}
+              onChange={(event) =>
+                update({ frameRate: Number(event.target.value) as RecorderSettings["frameRate"] })
+              }
             >
-              <option value={30}>30 fps</option>
-              <option value={60}>60 fps</option>
+              {FRAME_RATE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </Field>
         </div>
+        {HIGH_RESOLUTIONS.includes(settings.resolution) && (
+          <Hint>
+            Sharper only on screens with at least this many pixels — recordings are
+            never upscaled, so a smaller screen records at its own size.
+          </Hint>
+        )}
+        <ChoiceGroup
+          label="Detail"
+          value={settings.quality}
+          options={QUALITY_OPTIONS}
+          onChange={(quality) => update({ quality })}
+        />
+        <Hint>{VIDEO_QUALITIES[settings.quality].description}</Hint>
         {codecs.length > 1 && (
-          <div className="flex flex-col gap-2">
-            <p className="text-base text-zinc-700 dark:text-zinc-300">File type</p>
-            <div className="grid grid-cols-2 gap-2">
-              {codecs.map((codec) => (
-                <button
-                  key={codec}
-                  type="button"
-                  aria-pressed={settings.codec === codec}
-                  onClick={() => update({ codec })}
-                  className={choiceClass(settings.codec === codec)}
-                >
-                  {VIDEO_CODECS[codec].label}
-                </button>
-              ))}
-            </div>
-            <p className={hint}>{VIDEO_CODECS[settings.codec].description}</p>
-          </div>
+          <>
+            <ChoiceGroup
+              label="Video format"
+              value={settings.codec}
+              options={codecs.map((codec) => ({ value: codec, label: VIDEO_CODECS[codec].label }))}
+              onChange={(codec) => update({ codec })}
+            />
+            <Hint>{VIDEO_CODECS[settings.codec].description}</Hint>
+          </>
         )}
       </Section>
     </aside>

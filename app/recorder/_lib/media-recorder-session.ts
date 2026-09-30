@@ -16,6 +16,7 @@ export function createMediaRecorderSession({
   audio,
   resolution,
   frameRate,
+  quality,
   onError,
 }: RecordingSessionOptions): RecordingSession {
   const mimeType = getMp4MimeType();
@@ -26,7 +27,7 @@ export function createMediaRecorderSession({
     new MediaStream([videoTrack, ...(audio ? [audio.track] : [])]),
     {
       mimeType,
-      videoBitsPerSecond: fallbackVideoBitrate(resolution, frameRate),
+      videoBitsPerSecond: fallbackVideoBitrate(resolution, frameRate, quality),
       audioBitsPerSecond: AUDIO_BITRATE,
     }
   );

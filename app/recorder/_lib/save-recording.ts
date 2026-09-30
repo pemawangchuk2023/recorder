@@ -1,11 +1,5 @@
 export type SaveResult = "saved" | "downloaded" | "cancelled";
 
-export function recordingFilename(date: Date, extension: string): string {
-  const pad = (value: number) => value.toString().padStart(2, "0");
-  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-  return `recording-${day}-${pad(date.getHours())}${pad(date.getMinutes())}.${extension}`;
-}
-
 export function downloadFile(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");

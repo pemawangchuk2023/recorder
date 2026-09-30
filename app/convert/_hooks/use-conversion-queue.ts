@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { convertMedia } from "@/app/convert/_lib/convert-media";
-import { replaceExtension } from "@/app/convert/_lib/format-bytes";
+import { replaceExtension } from "@/lib/format-bytes";
 import { readMediaInfo } from "@/app/convert/_lib/media-info";
 import type { ConvertJob, ConvertSettings, TrimRange } from "@/app/convert/_lib/types";
 import { OUTPUT_FORMATS } from "@/constants/converter";

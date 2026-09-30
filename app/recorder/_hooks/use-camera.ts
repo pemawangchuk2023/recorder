@@ -19,14 +19,23 @@ export function useCamera(enabled: boolean, deviceId: string | undefined): Camer
     let cancelled = false;
     let acquired: MediaStream | null = null;
 
+    const video: MediaTrackConstraints = {
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+      frameRate: { ideal: 30 },
+    };
     navigator.mediaDevices
-      .getUserMedia({
-        video: {
-          deviceId: deviceId ? { exact: deviceId } : undefined,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          frameRate: { ideal: 30 },
-        },
+      .getUserMedia({ video: deviceId ? { ...video, deviceId: { exact: deviceId } } : video })
+      .catch((cause: unknown) => {
+        // A remembered camera may have been unplugged — use the default.
+        if (
+          deviceId &&
+          cause instanceof DOMException &&
+          (cause.name === "OverconstrainedError" || cause.name === "NotFoundError")
+        ) {
+          return navigator.mediaDevices.getUserMedia({ video });
+        }
+        throw cause;
       })
       .then((next) => {
         if (cancelled) {

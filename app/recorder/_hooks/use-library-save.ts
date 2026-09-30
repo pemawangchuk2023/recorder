@@ -1,0 +1,139 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { TranscriptSegment } from "@/app/recorder/_lib/types";
+import {
+  addRecording,
+  deleteRecordings,
+  isQuotaError,
+  renameRecording,
+  replaceRecordingVideo,
+} from "@/lib/library/library";
+import { isLibraryAvailable } from "@/lib/library/recordings-db";
+import { defaultRecordingTitle } from "@/lib/library/titles";
+
+export type LibrarySaveStatus = "saving" | "saved" | "failed" | "full" | "unavailable";
+
+export interface FinishedRecording {
+  // The take as recorded; identifies it across trims.
+  source: Blob;
+  // The current version: the source, or a trimmed copy of it.
+  blob: Blob;
+  transcript: TranscriptSegment[];
+}
+
+export interface LibrarySave {
+  status: LibrarySaveStatus;
+  title: string;
+  rename: (title: string) => void;
+  // Deletes the take from the library.
+  remove: () => Promise<void>;
+}
+
+interface SavedTake {
+  // Resolves to the library id, or null if saving failed.
+  id: Promise<string | null>;
+  // The version last written, so a trim (or its undo) replaces it once.
+  savedBlob: Blob;
+}
+
+// Every finished take goes straight into the library, like Loom, and later
+// trims replace it there — nothing is lost if the tab is closed.
+export function useLibrarySave(recording: FinishedRecording | null): LibrarySave | null {
+  const takesRef = useRef(new Map<Blob, SavedTake>());
+  const [state, setState] = useState<{ source: Blob; status: LibrarySaveStatus; title: string } | null>(
+    null
+  );
+
+  // Keeps a title the user already typed while the save was running.
+  const setStatus = useCallback((source: Blob, status: LibrarySaveStatus, title?: string) => {
+    setState((previous) =>
+      previous?.source === source
+        ? { ...previous, status }
+        : { source, status, title: title ?? defaultRecordingTitle(new Date()) }
+    );
+  }, []);
+
+  const source = recording?.source ?? null;
+  const blob = recording?.blob ?? null;
+  const transcriptRef = useRef<TranscriptSegment[]>([]);
+  useEffect(() => {
+    transcriptRef.current = recording?.transcript ?? [];
+  });
+
+  useEffect(() => {
+    if (!source || takesRef.current.has(source)) {
+      return;
+    }
+    const title = defaultRecordingTitle(new Date());
+    if (!isLibraryAvailable()) {
+      takesRef.current.set(source, { id: Promise.resolve(null), savedBlob: source });
+      queueMicrotask(() => setStatus(source, "unavailable", title));
+      return;
+    }
+    const id = addRecording({ title, video: source, transcript: transcriptRef.current }).then(
+      (saved) => {
+        setStatus(source, "saved", title);
+        return saved.id;
+      },
+      (cause: unknown) => {
+        setStatus(source, isQuotaError(cause) ? "full" : "failed", title);
+        return null;
+      }
+    );
+    takesRef.current.set(source, { id, savedBlob: source });
+  }, [source, setStatus]);
+
+  useEffect(() => {
+    const take = source ? takesRef.current.get(source) : undefined;
+    if (!source || !blob || !take) {
+      return;
+    }
+    take.id = take.id.then(async (id) => {
+      if (!id || take.savedBlob === blob) {
+        return id;
+      }
+      try {
+        await replaceRecordingVideo(id, blob, transcriptRef.current);
+        take.savedBlob = blob;
+      } catch (cause) {
+        setStatus(source, isQuotaError(cause) ? "full" : "failed");
+      }
+      return id;
+    });
+  }, [source, blob, setStatus]);
+
+  const rename = useCallback(
+    (title: string) => {
+      const take = source ? takesRef.current.get(source) : undefined;
+      if (!source || !take || !title.trim()) {
+        return;
+      }
+      // May run before the first save finishes; the save keeps this title.
+      setState((previous) => ({
+        source,
+        status: previous?.source === source ? previous.status : "saving",
+        title: title.trim(),
+      }));
+      void take.id.then((id) => (id ? renameRecording(id, title) : undefined)).catch(() => {});
+    },
+    [source]
+  );
+
+  const remove = useCallback(async () => {
+    const take = source ? takesRef.current.get(source) : undefined;
+    const id = await take?.id;
+    if (id) {
+      await deleteRecordings([id]);
+    }
+  }, [source]);
+
+  if (!source) {
+    return null;
+  }
+  const current = state?.source === source ? state : null;
+  return {
+    status: current?.status ?? "saving",
+    title: current?.title ?? defaultRecordingTitle(new Date()),
+    rename,
+    remove,
+  };
+}

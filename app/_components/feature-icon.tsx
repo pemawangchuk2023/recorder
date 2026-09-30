@@ -2,6 +2,7 @@ import {
   AudioWaveform,
   Captions,
   Keyboard,
+  Library,
   Lock,
   MonitorPlay,
   Music,
@@ -25,6 +26,7 @@ const ICONS: Record<FeatureIconName, LucideIcon> = {
   zap: Zap,
   keyboard: Keyboard,
   wave: AudioWaveform,
+  library: Library,
 };
 
 export function FeatureIcon({ name, className }: { name: FeatureIconName; className?: string }) {

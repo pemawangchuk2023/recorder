@@ -38,7 +38,6 @@ import {
   type VideoCompositor,
 } from "@/app/recorder/_lib/video-compositor";
 
-const COUNTDOWN_SECONDS = 3;
 // How long shared computer sound may stay completely silent before a warning.
 const SILENT_SOUND_WARNING_SECONDS = 6;
 
@@ -91,6 +90,7 @@ export interface ScreenRecorder {
   status: RecorderStatus;
   isCountingDown: boolean;
   countdownValue: number | null;
+  skipCountdown: () => void;
   // True while the last frames are encoded after Stop.
   isFinishing: boolean;
   elapsedSeconds: number;
@@ -106,6 +106,8 @@ export interface ScreenRecorder {
   resume: () => void;
   restart: () => void;
   discard: () => void;
+  // Clears a finished take, e.g. after it was deleted.
+  reset: () => void;
   setMicGain: (value: number) => void;
   setSystemAudioGain: (value: number) => void;
 }
@@ -121,7 +123,7 @@ export function useScreenRecorder(): ScreenRecorder {
   const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
   const [micAnalyser, setMicAnalyser] = useState<AnalyserNode | null>(null);
 
-  const countdown = useCountdown(COUNTDOWN_SECONDS);
+  const countdown = useCountdown();
   const countdownResolverRef = useRef<(() => void) | null>(null);
   // True from start() until cleanup. status stays "idle" through permission
   // prompts and the countdown, so this is what blocks a second start().
@@ -292,7 +294,7 @@ export function useScreenRecorder(): ScreenRecorder {
 
       await new Promise<void>((resolve) => {
         countdownResolverRef.current = resolve;
-        countdown.start(resolve);
+        countdown.start(settings.countdown, resolve);
       });
       countdownResolverRef.current = null;
       if (startAbortedRef.current) {
@@ -313,6 +315,7 @@ export function useScreenRecorder(): ScreenRecorder {
           codec: settings.codec,
           resolution: settings.resolution,
           frameRate: settings.frameRate,
+          quality: settings.quality,
           compositedSize:
             setup.useWebCodecs && compositor
               ? { width: compositor.width, height: compositor.height }
@@ -520,7 +523,9 @@ export function useScreenRecorder(): ScreenRecorder {
       // WebCodecs recording always goes through the compositor: its steady
       // frame rate keeps pauses and still screens correctly timed.
       let outputVideoTrack = mainVideoTrack;
-      const wantsCompositor = useWebCodecs || drawsBubble || (captionsReady && burnIn);
+      const mirrorsCamera = recordsCamera && settings.camera.mirror;
+      const wantsCompositor =
+        useWebCodecs || drawsBubble || mirrorsCamera || (captionsReady && burnIn);
       if (wantsCompositor && isVideoCompositorSupported()) {
         try {
           compositorRef.current = createVideoCompositor({
@@ -531,6 +536,9 @@ export function useScreenRecorder(): ScreenRecorder {
             frameRate: settings.frameRate,
             corner: settings.camera.corner,
             size: settings.camera.size,
+            shape: settings.camera.shape,
+            mirrorWebcam: settings.camera.mirror,
+            mirrorScreen: mirrorsCamera,
           });
           outputVideoTrack = compositorRef.current.videoTrack;
         } catch {
@@ -641,6 +649,18 @@ export function useScreenRecorder(): ScreenRecorder {
     }
   }, [cancelCountdown, cleanup, resetTakeTime]);
 
+  const reset = useCallback(() => {
+    if (busyRef.current) {
+      return;
+    }
+    setBlob(null);
+    setTranscript([]);
+    setNotices([]);
+    setError(null);
+    resetTakeTime();
+    setStatus("idle");
+  }, [resetTakeTime]);
+
   const setMicGain = useCallback((value: number) => {
     audioMixerRef.current?.setMicGain(value);
   }, []);
@@ -653,6 +673,7 @@ export function useScreenRecorder(): ScreenRecorder {
     status,
     isCountingDown: countdown.isRunning,
     countdownValue: countdown.value,
+    skipCountdown: countdown.skip,
     isFinishing,
     elapsedSeconds,
     blob,
@@ -667,6 +688,7 @@ export function useScreenRecorder(): ScreenRecorder {
     resume,
     restart,
     discard,
+    reset,
     setMicGain,
     setSystemAudioGain,
   };

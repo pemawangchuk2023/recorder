@@ -3,7 +3,7 @@
 import { ProgressBar, smallButton } from "@/app/convert/_components/form-controls";
 import { ResultPreview } from "@/app/convert/_components/result-preview";
 import { TrimRange } from "@/app/convert/_components/trim-range";
-import { formatBytes, formatSizeChange } from "@/app/convert/_lib/format-bytes";
+import { formatBytes, formatSizeChange } from "@/lib/format-bytes";
 import type { ConvertJob, MediaInfo, TrimRange as Range } from "@/app/convert/_lib/types";
 import { formatTime } from "@/app/recorder/_lib/format-time";
 import { canShareFile, downloadFile, shareFile } from "@/app/recorder/_lib/save-recording";

@@ -10,7 +10,8 @@ export type FeatureIconName =
   | "convert"
   | "zap"
   | "keyboard"
-  | "wave";
+  | "wave"
+  | "library";
 
 export interface Feature {
   title: string;
@@ -52,7 +53,7 @@ export const HERO = {
 export const STATS: readonly { value: string; label: string }[] = [
   { value: "0 bytes", label: "uploaded, ever" },
   { value: "11", label: "export formats" },
-  { value: "1080p", label: "at up to 60 fps" },
+  { value: "4K", label: "at up to 60 fps" },
   { value: "On-device", label: "live captions" },
 ];
 
@@ -103,11 +104,16 @@ export const FEATURES: readonly Feature[] = [
     wide: true,
   },
   {
+    title: "Your own video library",
+    description:
+      "Every take is saved automatically in this browser. Search titles and transcripts, rename, download or delete — no cloud needed.",
+    icon: "library",
+  },
+  {
     title: "Private by design",
     description:
-      "No account, no uploads, no tracking. Your files are processed in this tab and saved straight to your computer.",
+      "No account, no uploads, no tracking. Your files are processed and stored on this computer, and nowhere else.",
     icon: "lock",
-    wide: true,
   },
 ];
 
@@ -119,9 +125,11 @@ export const TOOLS: readonly Tool[] = [
     cta: "Open the recorder",
     icon: "screen",
     points: [
-      "Screen, window or tab — or just your camera",
+      "Screen + camera, screen only, or camera only",
+      "Up to 4K at 60 fps, with a circle or rounded camera bubble",
       "Microphone and computer sound at separate volumes",
       "Live captions, transcript and .srt download",
+      "Every take kept in your private library",
       "Trim, then save as MP4, MP3, GIF and more",
     ],
   },
@@ -152,9 +160,9 @@ export const STEPS: readonly Step[] = [
       "Select a screen, window or tab. A short countdown gives you a moment to get ready.",
   },
   {
-    title: "Trim and save",
+    title: "Trim, keep and share",
     description:
-      "Watch it back, trim the start and end, then save as MP4 — or convert it to any other format.",
+      "Watch it back and trim it. It's already in your library — download it as MP4, or convert it to any other format.",
   },
 ];
 
@@ -168,8 +176,8 @@ export const PRIVACY_POINTS: readonly { title: string; description: string }[] =
     description: "There's no server receiving your files — they go straight from memory to your disk.",
   },
   {
-    title: "Nothing stored",
-    description: "Close the tab and it's gone. No accounts, no history, no cookies tracking you.",
+    title: "Stored on your device only",
+    description: "Your library lives in this browser's own storage. Delete a recording and it's gone for good.",
   },
 ];
 
@@ -182,12 +190,17 @@ export const FAQS: readonly Faq[] = [
   {
     question: "Are my recordings or files uploaded anywhere?",
     answer:
-      "No. Everything runs inside this browser tab on your own computer. Files are only saved when you download them.",
+      "No. Everything runs inside this browser tab on your own computer. Recordings are kept in this browser's storage and on your disk when you download them — never on a server.",
   },
   {
     question: "How do I record music or sound from YouTube?",
     answer:
       "Keep “Record computer sound” on. When you press Start, choose the “Chrome Tab” list, pick the tab playing the sound and keep “Also share tab audio” on. On a Mac, sharing a whole screen or window usually carries no sound.",
+  },
+  {
+    question: "Where are my recordings kept?",
+    answer:
+      "In your library, inside this browser's own storage on this computer. They stay there until you delete them — but clearing your browser's site data removes them too, so download anything important.",
   },
   {
     question: "Which browsers work?",

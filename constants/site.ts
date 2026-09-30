@@ -9,6 +9,7 @@ export interface NavLink {
 export const NAV_LINKS: readonly NavLink[] = [
   { href: "/", label: "Home" },
   { href: "/recorder", label: "Recorder" },
+  { href: "/library", label: "Library" },
   { href: "/convert", label: "Converter" },
 ];
 
@@ -17,6 +18,7 @@ export const FOOTER_GROUPS: readonly { title: string; links: readonly NavLink[] 
     title: "Tools",
     links: [
       { href: "/recorder", label: "Screen recorder" },
+      { href: "/library", label: "Your library" },
       { href: "/convert", label: "File converter" },
     ],
   },

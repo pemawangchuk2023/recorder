@@ -17,30 +17,21 @@ import {
   useFloatingBubble,
 } from "@/app/recorder/_hooks/use-floating-bubble";
 import { useKeyboardShortcuts } from "@/app/recorder/_hooks/use-keyboard-shortcuts";
+import { useLibrarySave } from "@/app/recorder/_hooks/use-library-save";
 import { useObjectUrl } from "@/app/recorder/_hooks/use-object-url";
+import { useSavedSettings } from "@/app/recorder/_hooks/use-saved-settings";
 import { useScreenRecorder } from "@/app/recorder/_hooks/use-screen-recorder";
 import {
   isRecordingSupported,
   isScreenCaptureSupported,
 } from "@/app/recorder/_lib/recording-format";
+import { modeOf, withMode } from "@/app/recorder/_lib/recording-mode";
 import type {
   RecorderSettings,
-  RecordingSource,
+  RecordingMode,
   TranscriptSegment,
 } from "@/app/recorder/_lib/types";
-
-const DEFAULT_SETTINGS: RecorderSettings = {
-  source: "screen",
-  resolution: "1080p",
-  frameRate: 30,
-  codec: "avc",
-  mic: { enabled: true, gain: 1, mode: "voice" },
-  // On by default: music and video sound are only clean when captured
-  // directly, never through the mic hearing the speakers.
-  systemAudio: { enabled: true, gain: 1 },
-  camera: { enabled: false, corner: "bottom-right", size: "medium" },
-  captions: { enabled: true, burnIn: true },
-};
+import { cn } from "@/lib/utils";
 
 // A trimmed version of a finished recording, tied to the recording it came from.
 interface EditedRecording {
@@ -62,11 +53,11 @@ export function Recorder() {
   const screenSupported = useSyncExternalStore(subscribe, isScreenCaptureSupported, trueOnServer);
   const bubbleSupported = useSyncExternalStore(subscribe, isFloatingBubbleSupported, falseOnServer);
 
-  const [chosenSettings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [chosenSettings, setSettings] = useSavedSettings();
   // Phones can't share their screen, so they always record the camera.
   const settings: RecorderSettings = screenSupported
     ? chosenSettings
-    : { ...chosenSettings, source: "camera" };
+    : withMode(chosenSettings, "camera");
 
   const recorder = useScreenRecorder();
   const devices = useDevices();
@@ -85,6 +76,7 @@ export function Recorder() {
       : { source: recorder.blob, blob: recorder.blob, transcript: recorder.transcript }
     : null;
   const playbackUrl = useObjectUrl(recording?.blob ?? null);
+  const library = useLibrarySave(recording);
 
   const isIdle =
     !recorder.isCountingDown &&
@@ -149,21 +141,12 @@ export function Recorder() {
   };
 
   // The floating bubble can only open from a click, so it's opened right here.
-  const handleCameraToggle = (enabled: boolean) => {
-    setSettings((prev) => ({ ...prev, camera: { ...prev.camera, enabled } }));
-    if (!enabled) {
-      bubble.close();
-    } else if (settings.source === "screen" && bubbleSupported) {
+  const handleModeChange = (mode: RecordingMode) => {
+    setSettings((prev) => withMode(prev, mode));
+    if (mode === "screen-camera" && bubbleSupported) {
       bubble.open();
-    }
-  };
-
-  const handleSourceChange = (source: RecordingSource) => {
-    setSettings((prev) => ({ ...prev, source }));
-    if (source === "camera") {
+    } else {
       bubble.close();
-    } else if (settings.camera.enabled && bubbleSupported) {
-      bubble.open();
     }
   };
 
@@ -183,7 +166,14 @@ export function Recorder() {
 
   return (
     <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]">
-      <div className="flex min-w-0 flex-col gap-5">
+      {/* The preview stays in view while the settings beside it scroll —
+          except in review, where this column is the long one. */}
+      <div
+        className={cn(
+          "flex min-w-0 flex-col gap-5",
+          recorder.status !== "stopped" && "lg:sticky lg:top-24"
+        )}
+      >
         {!isSupported && (
           <p
             role="alert"
@@ -197,29 +187,17 @@ export function Recorder() {
         <RecorderPreview
           status={recorder.status}
           previewStream={recorder.previewStream}
-          idleStream={settings.source === "camera" ? camera.stream : null}
+          mode={modeOf(settings)}
+          cameraStream={camera.stream}
+          camera={settings.camera}
           countdownValue={recorder.countdownValue}
+          onSkipCountdown={recorder.skipCountdown}
           isFinishing={recorder.isFinishing}
           elapsedSeconds={recorder.elapsedSeconds}
           playbackUrl={playbackUrl}
           playbackRef={playbackRef}
         />
-        <RecorderControls
-          status={recorder.status}
-          isCountingDown={recorder.isCountingDown}
-          isFinishing={recorder.isFinishing}
-          disabled={!isSupported}
-          onStart={startRecording}
-          onPause={recorder.pause}
-          onResume={recorder.resume}
-          onStop={recorder.stop}
-          onRestart={() => askToConfirm("restart")}
-          onDiscard={handleDiscard}
-          confirming={confirming?.kind ?? null}
-          onConfirm={handleConfirm}
-          onCancelConfirm={handleCancelConfirm}
-        />
-        {recorder.status === "stopped" && recording && (
+        {recorder.status === "stopped" && recording && library && (
           <ReviewPanel
             key={playbackUrl}
             blob={recording.blob}
@@ -230,8 +208,32 @@ export function Recorder() {
               setEdited({ source: recording.source, blob, transcript })
             }
             onUndoTrim={() => setEdited(null)}
+            library={library}
+            onDeleted={() => {
+              setEdited(null);
+              recorder.reset();
+            }}
           />
         )}
+        <RecorderControls
+          status={recorder.status}
+          isCountingDown={recorder.isCountingDown}
+          countdownValue={recorder.countdownValue}
+          isFinishing={recorder.isFinishing}
+          disabled={!isSupported}
+          elapsedSeconds={recorder.elapsedSeconds}
+          micLevel={recorder.micAnalyser ? micLevel : null}
+          onStart={startRecording}
+          onSkipCountdown={recorder.skipCountdown}
+          onPause={recorder.pause}
+          onResume={recorder.resume}
+          onStop={recorder.stop}
+          onRestart={() => askToConfirm("restart")}
+          onDiscard={handleDiscard}
+          confirming={confirming?.kind ?? null}
+          onConfirm={handleConfirm}
+          onCancelConfirm={handleCancelConfirm}
+        />
       </div>
 
       <SettingsPanel
@@ -239,10 +241,9 @@ export function Recorder() {
         onChange={handleSettingsChange}
         disabled={!isIdle}
         screenSupported={screenSupported}
-        onSourceChange={handleSourceChange}
+        onModeChange={handleModeChange}
         cameras={devices.cameras}
         cameraError={camera.error}
-        onCameraToggle={handleCameraToggle}
         floatingBubble={{
           supported: bubbleSupported,
           isOpen: bubble.pipWindow !== null,
@@ -264,6 +265,7 @@ export function Recorder() {
         <FloatingBubble
           pipWindow={bubble.pipWindow}
           stream={camera.stream}
+          mirror={settings.camera.mirror}
           error={camera.error}
           status={recorder.status}
           elapsedSeconds={recorder.elapsedSeconds}

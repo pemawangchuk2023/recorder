@@ -3,6 +3,7 @@ import {
   AUDIO_BITRATE,
   KEY_FRAME_INTERVAL_SECONDS,
   VIDEO_QUALITY_LEVEL,
+  VIDEO_QUALITY_LEVELS,
 } from "@/app/recorder/_lib/recording-format";
 import type {
   RecordingSession,
@@ -76,6 +77,7 @@ export async function createMp4Session({
   audio,
   codec,
   frameRate,
+  quality,
   onError,
 }: RecordingSessionOptions): Promise<RecordingSession> {
   const {
@@ -107,7 +109,7 @@ export async function createMp4Session({
     videoTrack,
     {
       codec,
-      quality: new Quality(VIDEO_QUALITY_LEVEL),
+      quality: new Quality(VIDEO_QUALITY_LEVELS[quality]),
       keyFrameInterval: KEY_FRAME_INTERVAL_SECONDS,
       // "detail" keeps text sharp; "motion" keeps 60 fps smooth.
       contentHint: frameRate === 60 ? "motion" : "detail",

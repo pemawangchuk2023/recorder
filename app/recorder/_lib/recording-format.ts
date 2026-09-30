@@ -1,9 +1,11 @@
-import type { FrameRate, Resolution } from "@/app/recorder/_lib/types";
+import type { FrameRate, Resolution, VideoQuality } from "@/app/recorder/_lib/types";
 import { isVideoCompositorSupported } from "@/app/recorder/_lib/video-compositor";
 
 export const RESOLUTIONS: Record<Resolution, { width: number; height: number }> = {
   "720p": { width: 1280, height: 720 },
   "1080p": { width: 1920, height: 1080 },
+  "1440p": { width: 2560, height: 1440 },
+  "2160p": { width: 3840, height: 2160 },
 };
 
 // Constant-quality encoding: every frame gets the same quality, so text stays
@@ -11,6 +13,14 @@ export const RESOLUTIONS: Record<Resolution, { width: number; height: number }> 
 // nothing. On screen-like test content it held ~43 dB PSNR throughout (the old
 // 8 Mbps recordings dipped to 40 dB) at about a third of the size.
 export const VIDEO_QUALITY_LEVEL = "high";
+
+// The quality setting, as mediabunny's named levels. "high" is the default
+// above; "max" is for fine print and detailed designs, at roughly 1.5× the size.
+export const VIDEO_QUALITY_LEVELS: Record<VideoQuality, "medium" | "high" | "very-high"> = {
+  standard: "medium",
+  high: VIDEO_QUALITY_LEVEL,
+  max: "very-high",
+};
 
 // A key frame of a full screen of text costs as much as hundreds of ordinary
 // frames. One every 10 s instead of every 2 s roughly halved file size, and
@@ -43,10 +53,22 @@ const MP4_MIME_TYPES = [
 const FALLBACK_VIDEO_BITRATES: Record<Resolution, Record<FrameRate, number>> = {
   "720p": { 30: 5_000_000, 60: 7_500_000 },
   "1080p": { 30: 8_000_000, 60: 12_000_000 },
+  "1440p": { 30: 16_000_000, 60: 24_000_000 },
+  "2160p": { 30: 35_000_000, 60: 53_000_000 },
 };
 
-export function fallbackVideoBitrate(resolution: Resolution, frameRate: FrameRate): number {
-  return FALLBACK_VIDEO_BITRATES[resolution][frameRate];
+const FALLBACK_QUALITY_SCALE: Record<VideoQuality, number> = {
+  standard: 0.6,
+  high: 1,
+  max: 1.5,
+};
+
+export function fallbackVideoBitrate(
+  resolution: Resolution,
+  frameRate: FrameRate,
+  quality: VideoQuality
+): number {
+  return Math.round(FALLBACK_VIDEO_BITRATES[resolution][frameRate] * FALLBACK_QUALITY_SCALE[quality]);
 }
 
 export function getMp4MimeType(): string | null {

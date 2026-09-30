@@ -1,8 +1,14 @@
 import type {
   BubbleCorner,
+  BubbleShape,
   BubbleSize,
   FrameRate,
 } from "@/app/recorder/_lib/types";
+import {
+  BUBBLE_INSET_RATIO,
+  BUBBLE_SIZE_RATIO,
+  ROUNDED_BUBBLE_RADIUS,
+} from "@/constants/recorder";
 
 export interface VideoCompositor {
   videoTrack: MediaStreamVideoTrack;
@@ -21,14 +27,11 @@ interface CreateVideoCompositorOptions {
   frameRate: FrameRate;
   corner: BubbleCorner;
   size: BubbleSize;
+  shape: BubbleShape;
+  // Mirror the camera bubble, or the whole picture when it is the camera.
+  mirrorWebcam: boolean;
+  mirrorScreen: boolean;
 }
-
-// Camera circle diameter as a fraction of the video height.
-const WEBCAM_SIZE_RATIO: Record<BubbleSize, number> = {
-  small: 0.18,
-  medium: 0.25,
-  large: 0.33,
-};
 
 const CAPTION_MAX_LINES = 2;
 const CAPTION_FONT_FAMILY =
@@ -124,7 +127,8 @@ function wrapLastLines(
 export function createVideoCompositor(
   options: CreateVideoCompositorOptions
 ): VideoCompositor {
-  const { screenTrack, webcamTrack, frameRate, corner, size } = options;
+  const { screenTrack, webcamTrack, frameRate, corner, size, shape, mirrorWebcam, mirrorScreen } =
+    options;
   const { width, height } = outputSize(
     screenTrack,
     options.maxWidth,
@@ -176,10 +180,10 @@ export function createVideoCompositor(
       )
     : null;
 
-  // Camera bubble geometry: a plain circle in the chosen corner.
-  const diameter = Math.round(height * WEBCAM_SIZE_RATIO[size]);
+  // Camera bubble geometry: a circle or rounded square in the chosen corner.
+  const diameter = Math.round(height * BUBBLE_SIZE_RATIO[size]);
   const radius = diameter / 2;
-  const inset = Math.round(height * 0.035);
+  const inset = Math.round(height * BUBBLE_INSET_RATIO);
   const bubbleX = corner.endsWith("left") ? inset : width - inset - diameter;
   const bubbleY = corner.startsWith("top") ? inset : height - inset - diameter;
   const centerX = bubbleX + radius;
@@ -207,23 +211,34 @@ export function createVideoCompositor(
   let captionLines: string[] = [];
   let captionBoxWidth = 0;
 
+  const traceBubble = () => {
+    ctx.beginPath();
+    if (shape === "circle") {
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    } else {
+      ctx.roundRect(bubbleX, bubbleY, diameter, diameter, Math.round(diameter * ROUNDED_BUBBLE_RADIUS));
+    }
+  };
+
   const drawBubble = (webcam: VideoFrame) => {
-    // A soft shadow lifts the circle off light and dark screens alike.
+    // A soft shadow lifts the bubble off light and dark screens alike.
     ctx.save();
     ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
     ctx.shadowBlur = Math.round(diameter * 0.08);
     ctx.shadowOffsetY = Math.round(diameter * 0.02);
     ctx.fillStyle = "#18181b";
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    traceBubble();
     ctx.fill();
     ctx.restore();
 
     const side = Math.min(webcam.displayWidth, webcam.displayHeight);
     ctx.save();
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    traceBubble();
     ctx.clip();
+    if (mirrorWebcam) {
+      ctx.translate(centerX * 2, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(
       webcam,
       (webcam.displayWidth - side) / 2,
@@ -267,6 +282,11 @@ export function createVideoCompositor(
     );
     const drawWidth = screen.displayWidth * scale;
     const drawHeight = screen.displayHeight * scale;
+    ctx.save();
+    if (mirrorScreen) {
+      ctx.translate(width, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(
       screen,
       (width - drawWidth) / 2,
@@ -274,6 +294,7 @@ export function createVideoCompositor(
       drawWidth,
       drawHeight
     );
+    ctx.restore();
 
     if (webcamFrame) {
       drawBubble(webcamFrame);

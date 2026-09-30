@@ -10,6 +10,7 @@ const BUBBLE_CSS = `
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
   .bubble { position: relative; height: 100%; }
   .camera { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .mirrored { transform: scaleX(-1); }
   .message { position: absolute; inset: 0; display: grid; place-items: center; margin: 0;
     padding: 32px; text-align: center; color: #fff; font-size: 14px; }
   .controls { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
