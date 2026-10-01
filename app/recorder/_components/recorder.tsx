@@ -28,6 +28,7 @@ import {
 import { modeOf, withMode } from "@/app/recorder/_lib/recording-mode";
 import type {
   BubblePosition,
+  Chapter,
   RecorderSettings,
   RecordingMode,
   ScreenCameraLayout,
@@ -40,6 +41,7 @@ interface EditedRecording {
   source: Blob;
   blob: Blob;
   transcript: TranscriptSegment[];
+  chapters: Chapter[];
 }
 
 type ConfirmAction = { kind: "restart" | "discard"; resumeOnCancel: boolean };
@@ -75,7 +77,12 @@ export function Recorder() {
   const recording = recorder.blob
     ? edited?.source === recorder.blob
       ? edited
-      : { source: recorder.blob, blob: recorder.blob, transcript: recorder.transcript }
+      : {
+          source: recorder.blob,
+          blob: recorder.blob,
+          transcript: recorder.transcript,
+          chapters: recorder.chapters,
+        }
     : null;
   const playbackUrl = useObjectUrl(recording?.blob ?? null);
   const library = useLibrarySave(recording);
@@ -151,6 +158,7 @@ export function Recorder() {
     enabled: isSupported,
     onToggleRecording: isIdle ? startRecording : recorder.stop,
     onTogglePause: togglePause,
+    onAddChapter: recorder.addChapter,
   });
 
   const handleSettingsChange = (next: RecorderSettings) => {
@@ -240,8 +248,10 @@ export function Recorder() {
             transcript={recording.transcript}
             isTrimmed={recording.blob !== recording.source}
             playbackRef={playbackRef}
-            onTrimmed={(blob, transcript) =>
-              setEdited({ source: recording.source, blob, transcript })
+            chapters={recording.chapters}
+            onChaptersChange={(chapters) => setEdited({ ...recording, chapters })}
+            onTrimmed={(blob, transcript, chapters) =>
+              setEdited({ source: recording.source, blob, transcript, chapters })
             }
             onUndoTrim={() => setEdited(null)}
             library={library}
@@ -261,6 +271,8 @@ export function Recorder() {
           micLevel={recorder.micAnalyser ? micLevel : null}
           bubbleHidden={recorder.bubbleFrame ? bubbleHidden : null}
           onToggleBubble={toggleBubble}
+          chapterCount={recorder.chapters.length}
+          onAddChapter={recorder.addChapter}
           onStart={startRecording}
           onSkipCountdown={recorder.skipCountdown}
           onPause={recorder.pause}

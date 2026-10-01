@@ -1,17 +1,19 @@
 "use client";
 
 import { useState, type RefObject } from "react";
+import { trimChapters } from "@/app/recorder/_lib/chapters";
 import { trimRecording } from "@/app/recorder/_lib/edit-recording";
 import { formatPreciseTime } from "@/app/recorder/_lib/format-time";
 import { trimTranscript } from "@/app/recorder/_lib/transcript";
-import type { TranscriptSegment } from "@/app/recorder/_lib/types";
+import type { Chapter, TranscriptSegment } from "@/app/recorder/_lib/types";
 
 interface TrimEditorProps {
   blob: Blob;
   duration: number;
   transcript: TranscriptSegment[];
+  chapters: Chapter[];
   playbackRef: RefObject<HTMLVideoElement | null>;
-  onTrimmed: (blob: Blob, transcript: TranscriptSegment[]) => void;
+  onTrimmed: (blob: Blob, transcript: TranscriptSegment[], chapters: Chapter[]) => void;
 }
 
 const MIN_CLIP_SECONDS = 1;
@@ -69,7 +71,7 @@ function TrimPoint({
   );
 }
 
-export function TrimEditor({ blob, duration, transcript, playbackRef, onTrimmed }: TrimEditorProps) {
+export function TrimEditor({ blob, duration, transcript, chapters, playbackRef, onTrimmed }: TrimEditorProps) {
   const [start, setStart] = useState(0);
   const [end, setEnd] = useState(duration);
   const [progress, setProgress] = useState<number | null>(null);
@@ -106,7 +108,7 @@ export function TrimEditor({ blob, duration, transcript, playbackRef, onTrimmed 
     setProgress(0);
     try {
       const trimmed = await trimRecording(blob, from, to, setProgress);
-      onTrimmed(trimmed, trimTranscript(transcript, from, to));
+      onTrimmed(trimmed, trimTranscript(transcript, from, to), trimChapters(chapters, from, to));
     } catch {
       setFailed(true);
       setProgress(null);

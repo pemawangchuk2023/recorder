@@ -32,8 +32,7 @@ export const FOOTER_GROUPS: readonly { title: string; links: readonly NavLink[] 
   },
 ];
 
-export const THEME_OPTIONS = [
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-  { value: "system", label: "System" },
-] as const;
+export const THEMES = ["light", "dark"] as const;
+
+// A new key: earlier versions also stored "system", which no longer exists.
+export const THEME_STORAGE_KEY = "theme-mode";

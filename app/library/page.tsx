@@ -13,8 +13,8 @@ export default function LibraryPage() {
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-8 sm:py-16">
       <PageHeader eyebrow="Library" title="Your recordings">
-        Kept privately in this browser — never uploaded. Watch, rename, download
-        or delete them any time.
+        Kept privately in this browser — never uploaded. Watch, rename, add
+        chapters, get them ready for YouTube, download or delete them any time.
       </PageHeader>
       {/* The watched recording comes from the URL, which is only known in the browser. */}
       <Suspense>

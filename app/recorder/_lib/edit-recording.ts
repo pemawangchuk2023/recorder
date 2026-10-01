@@ -7,6 +7,8 @@ export interface RecordingInfo {
   duration: number;
   // Display name of the video codec, e.g. "H.264".
   codec: string | null;
+  width: number | null;
+  height: number | null;
 }
 
 // Read from the file itself: <video>.duration is Infinity for MediaRecorder's
@@ -20,6 +22,8 @@ export async function readRecordingInfo(blob: Blob): Promise<RecordingInfo> {
     return {
       duration: await input.computeDuration(),
       codec: codec ? (CODEC_NAMES[codec] ?? codec.toUpperCase()) : null,
+      width: track?.displayWidth ?? null,
+      height: track?.displayHeight ?? null,
     };
   } finally {
     input.dispose();

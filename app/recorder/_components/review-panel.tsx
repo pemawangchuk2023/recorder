@@ -1,6 +1,8 @@
 "use client";
 
 import type { RefObject } from "react";
+import { YouTubeReadyPanel } from "@/app/_components/youtube/youtube-ready-panel";
+import { ChaptersPanel } from "@/app/recorder/_components/chapters-panel";
 import { ExportPanel } from "@/app/recorder/_components/export-panel";
 import { LibraryStatus } from "@/app/recorder/_components/library-status";
 import { PlayerTools } from "@/app/recorder/_components/player-tools";
@@ -12,16 +14,18 @@ import type { LibrarySave } from "@/app/recorder/_hooks/use-library-save";
 import { useRecordingInfo } from "@/app/recorder/_hooks/use-recording-info";
 import { canTrimRecordings } from "@/app/recorder/_lib/edit-recording";
 import { formatTime } from "@/app/recorder/_lib/format-time";
-import type { TranscriptSegment } from "@/app/recorder/_lib/types";
+import type { Chapter, TranscriptSegment } from "@/app/recorder/_lib/types";
 import { formatBytes } from "@/lib/format-bytes";
 import { titleToFilename } from "@/lib/library/titles";
 
 interface ReviewPanelProps {
   blob: Blob;
   transcript: TranscriptSegment[];
+  chapters: Chapter[];
+  onChaptersChange: (chapters: Chapter[]) => void;
   isTrimmed: boolean;
   playbackRef: RefObject<HTMLVideoElement | null>;
-  onTrimmed: (blob: Blob, transcript: TranscriptSegment[]) => void;
+  onTrimmed: (blob: Blob, transcript: TranscriptSegment[], chapters: Chapter[]) => void;
   onUndoTrim: () => void;
   library: LibrarySave;
   // Called once the take is deleted from the library.
@@ -31,6 +35,8 @@ interface ReviewPanelProps {
 export function ReviewPanel({
   blob,
   transcript,
+  chapters,
+  onChaptersChange,
   isTrimmed,
   playbackRef,
   onTrimmed,
@@ -93,8 +99,17 @@ export function ReviewPanel({
             blob={blob}
             duration={info.duration}
             transcript={transcript}
+            chapters={chapters}
             playbackRef={playbackRef}
             onTrimmed={onTrimmed}
+          />
+        )}
+        {info && (
+          <ChaptersPanel
+            chapters={chapters}
+            duration={info.duration}
+            playbackRef={playbackRef}
+            onChange={onChaptersChange}
           />
         )}
         {transcript.length > 0 && (
@@ -102,6 +117,23 @@ export function ReviewPanel({
         )}
         <ExportPanel blob={blob} baseName={baseName} />
       </div>
+
+      {info && (
+        <div className="rounded-3xl border bg-card p-5 sm:p-6">
+          <YouTubeReadyPanel
+            video={blob}
+            title={library.title}
+            baseName={baseName}
+            duration={info.duration}
+            codec={info.codec}
+            width={info.width}
+            height={info.height}
+            transcript={transcript}
+            chapters={chapters}
+            playbackRef={playbackRef}
+          />
+        </div>
+      )}
     </div>
   );
 }

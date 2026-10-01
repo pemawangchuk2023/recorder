@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, EyeOff, Loader2, Pause, Play, RotateCcw, Square, Trash2, X } from "lucide-react";
+import { Bookmark, Eye, EyeOff, Loader2, Pause, Play, RotateCcw, Square, Trash2, X } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { MicLevelMeter } from "@/app/recorder/_components/mic-level-meter";
 import { formatTime } from "@/app/recorder/_lib/format-time";
@@ -21,6 +21,9 @@ interface RecorderControlsProps {
   // there's no drawn bubble to hide.
   bubbleHidden: boolean | null;
   onToggleBubble: () => void;
+  // Chapter markers dropped so far in this take.
+  chapterCount: number;
+  onAddChapter: () => void;
   onStart: () => void;
   onSkipCountdown: () => void;
   onPause: () => void;
@@ -70,6 +73,8 @@ export function RecorderControls({
   micLevel,
   bubbleHidden,
   onToggleBubble,
+  chapterCount,
+  onAddChapter,
   onStart,
   onSkipCountdown,
   onPause,
@@ -146,6 +151,21 @@ export function RecorderControls({
         {micLevel !== null && <MicLevelMeter level={micLevel} className="hidden sm:flex" />}
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onAddChapter}
+            disabled={disabled || paused}
+            className={cn(secondary, "px-4")}
+            title="Add a chapter marker here (Ctrl+Shift+M)"
+          >
+            <Bookmark className={cn("size-4", chapterCount > 0 && "fill-current text-brand")} aria-hidden="true" />
+            Chapter
+            {chapterCount > 0 && (
+              <span key={chapterCount} className="tabular-nums text-brand animate-in zoom-in-50 duration-300" aria-live="polite">
+                {chapterCount}
+              </span>
+            )}
+          </button>
           {bubbleHidden !== null && (
             <button
               type="button"
@@ -209,6 +229,10 @@ export function RecorderControls({
         <span aria-hidden="true">·</span>
         <span className="inline-flex items-center gap-1">
           <Kbd>Ctrl</Kbd>+<Kbd>Shift</Kbd>+<Kbd>P</Kbd> pause
+        </span>
+        <span aria-hidden="true">·</span>
+        <span className="inline-flex items-center gap-1">
+          <Kbd>Ctrl</Kbd>+<Kbd>Shift</Kbd>+<Kbd>M</Kbd> chapter
         </span>
       </p>
     </Bar>

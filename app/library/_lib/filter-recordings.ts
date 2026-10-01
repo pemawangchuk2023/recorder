@@ -8,7 +8,7 @@ const COMPARE: Record<LibrarySort, (a: LibraryRecording, b: LibraryRecording) =>
   largest: (a, b) => b.size - a.size,
 };
 
-// Matches the title or anything said in the recording.
+// Matches the title, a chapter, or anything said in the recording.
 export function filterRecordings(
   recordings: LibraryRecording[],
   query: string,
@@ -19,6 +19,7 @@ export function filterRecordings(
     ? recordings.filter(
         (recording) =>
           recording.title.toLowerCase().includes(needle) ||
+          (recording.chapters ?? []).some((chapter) => chapter.title.toLowerCase().includes(needle)) ||
           recording.transcript.some((segment) => segment.text.toLowerCase().includes(needle))
       )
     : recordings;

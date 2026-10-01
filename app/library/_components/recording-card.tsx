@@ -16,16 +16,17 @@ import {
 import { formatBytes } from "@/lib/format-bytes";
 import { formatRecordedAt } from "@/lib/format-date";
 import { deleteRecordings } from "@/lib/library/library";
-import type { LibraryRecording } from "@/lib/library/types";
+import { fileVersionOf, type LibraryRecording } from "@/lib/library/types";
 
 export function RecordingCard({ recording }: { recording: LibraryRecording }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const href = `/library?v=${recording.id}`;
+  const isVertical = recording.width !== null && recording.height !== null && recording.height > recording.width;
 
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-ring">
       <Link href={href} className="relative block outline-none" aria-label={`Watch ${recording.title}`}>
-        <VideoThumbnail id={recording.id} version={recording.updatedAt} />
+        <VideoThumbnail id={recording.id} version={fileVersionOf(recording)} />
         <span className="absolute right-2 bottom-2 rounded-md bg-black/75 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-white">
           {formatTime(Math.round(recording.duration))}
         </span>
@@ -47,6 +48,11 @@ export function RecordingCard({ recording }: { recording: LibraryRecording }) {
           <p className="text-sm text-muted-foreground">
             {formatRecordedAt(recording.createdAt)} · {formatBytes(recording.size)}
           </p>
+          {isVertical && (
+            <span className="self-start rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">
+              Vertical 9:16
+            </span>
+          )}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger

@@ -4,12 +4,14 @@ interface UseKeyboardShortcutsOptions {
   enabled: boolean;
   onToggleRecording: () => void;
   onTogglePause: () => void;
+  onAddChapter: () => void;
 }
 
 export function useKeyboardShortcuts({
   enabled,
   onToggleRecording,
   onTogglePause,
+  onAddChapter,
 }: UseKeyboardShortcutsOptions): void {
   useEffect(() => {
     if (!enabled) {
@@ -27,10 +29,13 @@ export function useKeyboardShortcuts({
       } else if (key === "p") {
         event.preventDefault();
         onTogglePause();
+      } else if (key === "m") {
+        event.preventDefault();
+        onAddChapter();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [enabled, onToggleRecording, onTogglePause]);
+  }, [enabled, onToggleRecording, onTogglePause, onAddChapter]);
 }

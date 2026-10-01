@@ -8,7 +8,7 @@ import {
 } from "@/lib/library/recordings-db";
 import type { LibraryRecording, NewLibraryRecording } from "@/lib/library/types";
 import { readVideoDetails } from "@/lib/library/video-details";
-import type { TranscriptSegment } from "@/app/recorder/_lib/types";
+import type { Chapter, TranscriptSegment } from "@/app/recorder/_lib/types";
 
 // The public face of the library: every change goes through here, so every
 // open page (this tab and others) hears about it.
@@ -47,7 +47,12 @@ export async function getRecordingThumbnail(id: string): Promise<Blob | null> {
   return (await readFiles(id))?.thumbnail ?? null;
 }
 
-export async function addRecording({ title, video, transcript }: NewLibraryRecording): Promise<LibraryRecording> {
+export async function addRecording({
+  title,
+  video,
+  transcript,
+  chapters,
+}: NewLibraryRecording): Promise<LibraryRecording> {
   const details = await readVideoDetails(video);
   const now = Date.now();
   const recording: LibraryRecording = {
@@ -55,12 +60,14 @@ export async function addRecording({ title, video, transcript }: NewLibraryRecor
     title,
     createdAt: now,
     updatedAt: now,
+    fileVersion: now,
     duration: details.duration,
     size: video.size,
     codec: details.codec,
     width: details.width,
     height: details.height,
     transcript,
+    chapters,
   };
   await writeRecording(recording, { id: recording.id, video, thumbnail: details.thumbnail });
   notify();
@@ -71,23 +78,27 @@ export async function addRecording({ title, video, transcript }: NewLibraryRecor
 export async function replaceRecordingVideo(
   id: string,
   video: Blob,
-  transcript: TranscriptSegment[]
+  transcript: TranscriptSegment[],
+  chapters: Chapter[]
 ): Promise<void> {
   const existing = await readDetails(id);
   if (!existing) {
     return;
   }
   const details = await readVideoDetails(video);
+  const now = Date.now();
   await writeRecording(
     {
       ...existing,
-      updatedAt: Date.now(),
+      updatedAt: now,
+      fileVersion: now,
       duration: details.duration,
       size: video.size,
       codec: details.codec,
       width: details.width,
       height: details.height,
       transcript,
+      chapters,
     },
     { id, video, thumbnail: details.thumbnail }
   );
@@ -101,6 +112,19 @@ export async function renameRecording(id: string, title: string): Promise<void> 
     return;
   }
   await writeDetails({ ...existing, title: trimmed, updatedAt: Date.now() });
+  notify();
+}
+
+// Small edits to a recording's details, such as its chapters.
+export async function updateRecording(
+  id: string,
+  patch: Partial<Pick<LibraryRecording, "chapters">>
+): Promise<void> {
+  const existing = await readDetails(id);
+  if (!existing) {
+    return;
+  }
+  await writeDetails({ ...existing, ...patch, updatedAt: Date.now() });
   notify();
 }
 

@@ -26,8 +26,10 @@ import {
   type RecordingSession,
 } from "@/app/recorder/_lib/recording-session";
 import { MIC_CONSTRAINTS } from "@/constants/recorder";
+import { nextChapterTitle } from "@/app/recorder/_lib/chapters";
 import type {
   BubblePosition,
+  Chapter,
   MicMode,
   RecorderSettings,
   RecorderStatus,
@@ -97,6 +99,8 @@ export interface ScreenRecorder {
   elapsedSeconds: number;
   blob: Blob | null;
   transcript: TranscriptSegment[];
+  // Markers dropped during the take (live while recording, final after).
+  chapters: Chapter[];
   error: string | null;
   notices: string[];
   previewStream: MediaStream | null;
@@ -110,6 +114,8 @@ export interface ScreenRecorder {
   resume: () => void;
   restart: () => void;
   discard: () => void;
+  // Drops a chapter marker at the current recording time.
+  addChapter: () => void;
   // Clears a finished take, e.g. after it was deleted.
   reset: () => void;
   setMicGain: (value: number) => void;
@@ -125,6 +131,7 @@ export function useScreenRecorder(): ScreenRecorder {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [blob, setBlob] = useState<Blob | null>(null);
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notices, setNotices] = useState<string[]>([]);
   const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
@@ -193,6 +200,7 @@ export function useScreenRecorder(): ScreenRecorder {
     segmentStartRef.current = null;
     setElapsedSeconds(0);
     transcriptRef.current = [];
+    setChapters([]);
   }, [stopTimer]);
 
   const addNotice = useCallback((message: string) => {
@@ -406,6 +414,7 @@ export function useScreenRecorder(): ScreenRecorder {
       setError(null);
       setBlob(null);
       setTranscript([]);
+      setChapters([]);
       setNotices([]);
       resetTakeTime();
       startAbortedRef.current = false;
@@ -671,6 +680,14 @@ export function useScreenRecorder(): ScreenRecorder {
     }
   }, [cancelCountdown, cleanup, resetTakeTime]);
 
+  const addChapter = useCallback(() => {
+    if (!sessionRef.current || finishingRef.current) {
+      return;
+    }
+    const time = getActiveMs() / 1000;
+    setChapters((previous) => [...previous, { time, title: nextChapterTitle(previous) }]);
+  }, [getActiveMs]);
+
   const reset = useCallback(() => {
     if (busyRef.current) {
       return;
@@ -712,6 +729,7 @@ export function useScreenRecorder(): ScreenRecorder {
     elapsedSeconds,
     blob,
     transcript,
+    chapters,
     error,
     notices,
     previewStream,
@@ -723,6 +741,7 @@ export function useScreenRecorder(): ScreenRecorder {
     resume,
     restart,
     discard,
+    addChapter,
     reset,
     setMicGain,
     setSystemAudioGain,

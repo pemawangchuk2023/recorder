@@ -7,6 +7,7 @@ import {
   MonitorPlay,
   Music,
   Repeat2,
+  SquarePlay,
   Scissors,
   Video,
   Zap,
@@ -27,6 +28,7 @@ const ICONS: Record<FeatureIconName, LucideIcon> = {
   keyboard: Keyboard,
   wave: AudioWaveform,
   library: Library,
+  youtube: SquarePlay,
 };
 
 export function FeatureIcon({ name, className }: { name: FeatureIconName; className?: string }) {

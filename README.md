@@ -42,3 +42,4 @@ npm run lint
 ```
 
 Screen recording needs an up-to-date Chrome or Edge on a computer.
+

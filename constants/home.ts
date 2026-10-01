@@ -11,7 +11,8 @@ export type FeatureIconName =
   | "zap"
   | "keyboard"
   | "wave"
-  | "library";
+  | "library"
+  | "youtube";
 
 export interface Feature {
   title: string;
@@ -72,9 +73,9 @@ export const FEATURES: readonly Feature[] = [
     icon: "music",
   },
   {
-    title: "Floating camera",
+    title: "Camera your way",
     description:
-      "Your camera floats over any app while you record, so you can see yourself. Or record just your camera.",
+      "A bubble you drag and resize anywhere — even mid-recording — or a stacked 9:16 layout for TikTok, Reels and Shorts.",
     icon: "camera",
   },
   {
@@ -104,16 +105,25 @@ export const FEATURES: readonly Feature[] = [
     wide: true,
   },
   {
+    title: "Ready for YouTube",
+    description:
+      "A format check, chapter markers, a thumbnail, captions and a paste-ready description — and vertical Shorts for TikTok and Reels too.",
+    icon: "youtube",
+    wide: true,
+  },
+  {
     title: "Your own video library",
     description:
       "Every take is saved automatically in this browser. Search titles and transcripts, rename, download or delete — no cloud needed.",
     icon: "library",
+    wide: true,
   },
   {
     title: "Private by design",
     description:
       "No account, no uploads, no tracking. Your files are processed and stored on this computer, and nowhere else.",
     icon: "lock",
+    wide: true,
   },
 ];
 
@@ -130,6 +140,7 @@ export const TOOLS: readonly Tool[] = [
       "Microphone and computer sound at separate volumes",
       "Live captions, transcript and .srt download",
       "Every take kept in your private library",
+      "Chapter markers and YouTube-ready files",
       "Trim, then save as MP4, MP3, GIF and more",
     ],
   },
@@ -201,6 +212,11 @@ export const FAQS: readonly Faq[] = [
     question: "Where are my recordings kept?",
     answer:
       "In your library, inside this browser's own storage on this computer. They stay there until you delete them — but clearing your browser's site data removes them too, so download anything important.",
+  },
+  {
+    question: "Are recordings ready for YouTube and TikTok?",
+    answer:
+      "Yes. Recordings are H.264 MP4s that YouTube recommends, and each one gets a YouTube check plus a paste-ready description with chapters, tags, a thumbnail and captions. For TikTok, Reels and Shorts, record in the Stacked 9:16 layout. Download the MP4 and upload it on the platform as usual.",
   },
   {
     question: "Which browsers work?",

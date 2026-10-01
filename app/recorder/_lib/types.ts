@@ -91,6 +91,13 @@ export interface RecorderSettings {
   captions: { enabled: boolean; burnIn: boolean };
 }
 
+// A chapter marker dropped while recording (or added later), in seconds of
+// recorded video. YouTube turns these into chapters on the timeline.
+export interface Chapter {
+  time: number;
+  title: string;
+}
+
 // A finished caption line, timed in seconds of recorded video.
 export interface TranscriptSegment {
   start: number;

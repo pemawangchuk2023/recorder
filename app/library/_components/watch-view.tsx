@@ -2,8 +2,10 @@
 
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { YouTubeReadyPanel } from "@/app/_components/youtube/youtube-ready-panel";
 import { useStoredBlob } from "@/app/library/_hooks/use-stored-blob";
+import { ChaptersPanel } from "@/app/recorder/_components/chapters-panel";
 import { ExportPanel } from "@/app/recorder/_components/export-panel";
 import { PlayerTools } from "@/app/recorder/_components/player-tools";
 import { RecordingActions } from "@/app/recorder/_components/recording-actions";
@@ -11,11 +13,17 @@ import { RecordingTitle } from "@/app/recorder/_components/recording-title";
 import { TranscriptPanel } from "@/app/recorder/_components/transcript-panel";
 import { useObjectUrl } from "@/app/recorder/_hooks/use-object-url";
 import { formatTime } from "@/app/recorder/_lib/format-time";
+import type { Chapter } from "@/app/recorder/_lib/types";
 import { formatBytes } from "@/lib/format-bytes";
 import { formatRecordedAt } from "@/lib/format-date";
-import { deleteRecordings, getRecordingVideo, renameRecording } from "@/lib/library/library";
+import {
+  deleteRecordings,
+  getRecordingVideo,
+  renameRecording,
+  updateRecording,
+} from "@/lib/library/library";
 import { titleToFilename } from "@/lib/library/titles";
-import type { LibraryRecording } from "@/lib/library/types";
+import { fileVersionOf, type LibraryRecording } from "@/lib/library/types";
 
 interface WatchViewProps {
   recording: LibraryRecording;
@@ -24,7 +32,13 @@ interface WatchViewProps {
 
 export function WatchView({ recording, onDeleted }: WatchViewProps) {
   const playbackRef = useRef<HTMLVideoElement>(null);
-  const { blob, loaded } = useStoredBlob(recording.id, recording.updatedAt, getRecordingVideo);
+  // Edited here and written through, so typing never waits on storage.
+  const [chapters, setChapters] = useState<Chapter[]>(recording.chapters ?? []);
+  const changeChapters = (next: Chapter[]) => {
+    setChapters(next);
+    void updateRecording(recording.id, { chapters: next });
+  };
+  const { blob, loaded } = useStoredBlob(recording.id, fileVersionOf(recording), getRecordingVideo);
   const url = useObjectUrl(blob);
   const filename = titleToFilename(recording.title, "mp4");
   const baseName = filename.replace(/\.mp4$/, "");
@@ -112,9 +126,32 @@ export function WatchView({ recording, onDeleted }: WatchViewProps) {
               </p>
             </div>
           )}
+          <ChaptersPanel
+            chapters={chapters}
+            duration={recording.duration}
+            playbackRef={playbackRef}
+            onChange={changeChapters}
+          />
           {blob && <ExportPanel blob={blob} baseName={baseName} />}
         </aside>
       </div>
+
+      {blob && (
+        <div className="rounded-3xl border bg-card p-5 sm:p-6 lg:max-w-[calc(100%-23.5rem)]">
+          <YouTubeReadyPanel
+            video={blob}
+            title={recording.title}
+            baseName={baseName}
+            duration={recording.duration}
+            codec={recording.codec}
+            width={recording.width}
+            height={recording.height}
+            transcript={recording.transcript}
+            chapters={chapters}
+            playbackRef={playbackRef}
+          />
+        </div>
+      )}
     </div>
   );
 }
