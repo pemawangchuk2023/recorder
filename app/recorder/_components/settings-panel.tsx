@@ -143,6 +143,17 @@ export function SettingsPanel({
         )}
         {stacked && (
           <>
+            <ChoiceGroup
+              label="Screen"
+              value={settings.stacked.screenFit}
+              options={SCREEN_FIT_OPTIONS}
+              onChange={(screenFit) => updateStacked({ screenFit })}
+            />
+            <Hint>{SCREEN_FIT_DESCRIPTIONS[settings.stacked.screenFit]}</Hint>
+          </>
+        )}
+        {stacked && settings.stacked.screenFit === "fill" && (
+          <>
             <Field label={`Screen height · ${Math.round(settings.stacked.split * 100)}% (you get the rest)`}>
               <input
                 type="range"
@@ -154,13 +165,6 @@ export function SettingsPanel({
                 className="accent-red-600"
               />
             </Field>
-            <ChoiceGroup
-              label="Screen"
-              value={settings.stacked.screenFit}
-              options={SCREEN_FIT_OPTIONS}
-              onChange={(screenFit) => updateStacked({ screenFit })}
-            />
-            <Hint>{SCREEN_FIT_DESCRIPTIONS[settings.stacked.screenFit]}</Hint>
           </>
         )}
         <ChoiceGroup

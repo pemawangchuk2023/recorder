@@ -21,21 +21,34 @@ export function stackedFrameSize(maxWidth: number, maxHeight: number): { width: 
   return { width: even(maxHeight), height: even(maxWidth) };
 }
 
+// Before sharing, the screen's shape isn't known; most are 16:9.
+export const ASSUMED_SCREEN_ASPECT = 16 / 9;
+
+// The screen never takes more than this share of the height, so a tall
+// window can't squeeze the camera out.
+const MAX_SCREEN_SHARE = 0.7;
+
+// "Whole screen" gives the screen exactly its own shape — full width, no bars
+// — and the camera everything below. "Fill" uses the chosen split and crops.
+export function screenShare(layout: StackedLayout, frameAspect: number, screenAspect: number): number {
+  if (layout.screenFit === "fill") {
+    return layout.split;
+  }
+  return Math.min(MAX_SCREEN_SHARE, frameAspect / screenAspect);
+}
+
 export function stackedRegions(
   width: number,
   height: number,
-  layout: StackedLayout
+  layout: StackedLayout,
+  screenAspect: number
 ): { screen: Region; camera: Region } {
-  const screenHeight = Math.round(height * layout.split);
+  const screenHeight = Math.round(height * screenShare(layout, width / height, screenAspect));
   return {
     screen: { x: 0, y: 0, width, height: screenHeight },
     camera: { x: 0, y: screenHeight, width, height: height - screenHeight },
   };
 }
-
-// A tiny canvas the screen is shrunk into; stretching it back up gives a
-// soft blur for almost no work, unlike a real blur filter on every frame.
-const BLUR_CANVAS_WIDTH = 32;
 
 export interface StackedPainter {
   draw: (screen: VideoFrame, webcam: VideoFrame | null) => void;
@@ -52,17 +65,13 @@ export function createStackedPainter(
   }
 ): StackedPainter {
   const { layout, framing, mirrorWebcam } = options;
-  const regions = stackedRegions(width, height, layout);
-  const blurCanvas = new OffscreenCanvas(BLUR_CANVAS_WIDTH, BLUR_CANVAS_WIDTH);
-  const blurCtx = blurCanvas.getContext("2d");
 
   // Draws `frame` cropped to cover `region` completely.
   const cover = (frame: VideoFrame, region: Region, crop: ReturnType<typeof cameraCrop>) => {
     ctx.drawImage(frame, crop.sx, crop.sy, crop.sw, crop.sh, region.x, region.y, region.width, region.height);
   };
 
-  const drawScreen = (screen: VideoFrame) => {
-    const region = regions.screen;
+  const drawScreen = (screen: VideoFrame, region: Region) => {
     const aspect = region.width / region.height;
     const { displayWidth: sw, displayHeight: sh } = screen;
     const centered: CameraFraming = { zoom: 1, x: 0.5, y: 0.5 };
@@ -72,18 +81,8 @@ export function createStackedPainter(
       return;
     }
 
-    // Blurred, darkened backdrop filling the space, then the whole screen on top.
-    if (blurCtx) {
-      const blurHeight = Math.max(1, Math.round((BLUR_CANVAS_WIDTH * sh) / sw));
-      if (blurCanvas.height !== blurHeight) {
-        blurCanvas.height = blurHeight;
-      }
-      blurCtx.drawImage(screen, 0, 0, blurCanvas.width, blurCanvas.height);
-      const crop = cameraCrop(blurCanvas.width, blurCanvas.height, centered, false, aspect);
-      ctx.drawImage(blurCanvas, crop.sx, crop.sy, crop.sw, crop.sh, region.x, region.y, region.width, region.height);
-      ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
-      ctx.fillRect(region.x, region.y, region.width, region.height);
-    }
+    // The region already has the screen's shape, so this fills it exactly;
+    // only a window taller than the cap gets plain black at its sides.
     const scale = Math.min(region.width / sw, region.height / sh);
     const drawWidth = sw * scale;
     const drawHeight = sh * scale;
@@ -96,8 +95,7 @@ export function createStackedPainter(
     );
   };
 
-  const drawCamera = (webcam: VideoFrame) => {
-    const region = regions.camera;
+  const drawCamera = (webcam: VideoFrame, region: Region) => {
     const crop = cameraCrop(
       webcam.displayWidth,
       webcam.displayHeight,
@@ -119,16 +117,18 @@ export function createStackedPainter(
 
   return {
     draw(screen, webcam) {
+      // Worked out per frame: the shared window can change shape mid-take.
+      const regions = stackedRegions(width, height, layout, screen.displayWidth / screen.displayHeight);
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, width, height);
-      drawScreen(screen);
+      drawScreen(screen, regions.screen);
       if (webcam) {
-        drawCamera(webcam);
+        drawCamera(webcam, regions.camera);
       } else {
         ctx.fillStyle = "#18181b";
         ctx.fillRect(regions.camera.x, regions.camera.y, regions.camera.width, regions.camera.height);
       }
-      // A hairline where the two halves meet keeps them from blurring together.
+      // A hairline where the two halves meet keeps them visually apart.
       ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
       ctx.fillRect(0, regions.camera.y - 1, width, 2);
     },

@@ -22,8 +22,8 @@ export type RecordingMode = "screen-camera" | "screen" | "camera";
 // camera below), like TikTok and CapCut reactions.
 export type ScreenCameraLayout = "bubble" | "stacked";
 
-// In the stacked layout: the whole screen over a blurred copy of itself,
-// or cropped to fill its part of the frame.
+// In the stacked layout: the whole screen in a space of its own shape (no
+// bars), or a taller space it's cropped to fill.
 export type ScreenFit = "fit" | "fill";
 
 export interface StackedLayout {

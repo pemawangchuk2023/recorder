@@ -69,11 +69,11 @@ export const SCREEN_FIT_OPTIONS: { value: ScreenFit; label: string }[] = [
 ];
 
 export const SCREEN_FIT_DESCRIPTIONS: Record<ScreenFit, string> = {
-  fit: "Shows all of it, over a soft blurred copy — nothing is cut off.",
-  fill: "Crops the sides so the screen fills its space edge to edge.",
+  fit: "Shows all of the screen edge to edge, with no bars — you get all the space below it.",
+  fill: "Gives the screen a taller space and crops its sides to fill it.",
 };
 
-// How much of the vertical frame the screen may take.
+// How much of the vertical frame the screen may take in "Fill".
 export const STACKED_SPLIT_RANGE = { min: 0.35, max: 0.7 };
 
 export const RESOLUTION_OPTIONS: { value: Resolution; label: string }[] = [
