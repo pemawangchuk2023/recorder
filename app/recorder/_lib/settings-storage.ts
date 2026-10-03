@@ -5,6 +5,7 @@ import type {
   BubblePosition,
   CameraFraming,
   RecorderSettings,
+  ScreenArea,
 } from "@/app/recorder/_lib/types";
 import {
   BUBBLE_SHAPES,
@@ -12,9 +13,8 @@ import {
   COUNTDOWN_OPTIONS,
   DEFAULT_FRAMING,
   DEFAULT_SETTINGS,
+  MIN_SCREEN_AREA,
   LAYOUT_OPTIONS,
-  SCREEN_FIT_OPTIONS,
-  STACKED_SPLIT_RANGE,
   MAX_CAMERA_ZOOM,
   FRAME_RATE_OPTIONS,
   MIC_MODES,
@@ -67,6 +67,26 @@ function bubbleSize(value: unknown, fallback: number): number {
     : fallback;
 }
 
+// Saved by an earlier version (zoom/centre, fit or fill): start from the whole
+// screen instead.
+function screenArea(stacked: Record<string, unknown>): ScreenArea {
+  const area = (stacked.area ?? {}) as Record<string, unknown>;
+  const { x, y, width, height } = area;
+  if (
+    fraction(x) &&
+    fraction(y) &&
+    typeof width === "number" &&
+    typeof height === "number" &&
+    width >= MIN_SCREEN_AREA &&
+    height >= MIN_SCREEN_AREA &&
+    x + width <= 1 + 1e-6 &&
+    y + height <= 1 + 1e-6
+  ) {
+    return { x, y, width, height };
+  }
+  return DEFAULT_SETTINGS.stacked.area;
+}
+
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value ? value : undefined;
 }
@@ -91,7 +111,6 @@ export function parseSettings(raw: string | null): RecorderSettings {
   const camera = (stored.camera ?? {}) as Record<string, unknown>;
   const captions = (stored.captions ?? {}) as Record<string, unknown>;
   const stacked = (stored.stacked ?? {}) as Record<string, unknown>;
-  const split = stacked.split;
   const values = <T>(options: readonly { value: T }[]) => options.map((option) => option.value);
 
   return {
@@ -102,13 +121,7 @@ export function parseSettings(raw: string | null): RecorderSettings {
     quality: oneOf(stored.quality, Object.keys(VIDEO_QUALITIES) as (keyof typeof VIDEO_QUALITIES)[], d.quality),
     countdown: oneOf(stored.countdown, values(COUNTDOWN_OPTIONS), d.countdown),
     layout: oneOf(stored.layout, values(LAYOUT_OPTIONS), d.layout),
-    stacked: {
-      split:
-        typeof split === "number" && split >= STACKED_SPLIT_RANGE.min && split <= STACKED_SPLIT_RANGE.max
-          ? split
-          : d.stacked.split,
-      screenFit: oneOf(stacked.screenFit, values(SCREEN_FIT_OPTIONS), d.stacked.screenFit),
-    },
+    stacked: { area: screenArea(stacked) },
     mic: {
       enabled: typeof mic.enabled === "boolean" ? mic.enabled : d.mic.enabled,
       deviceId: optionalString(mic.deviceId),

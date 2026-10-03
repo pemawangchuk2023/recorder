@@ -13,7 +13,6 @@ import type {
   RecorderStatus,
   RecordingMode,
   ScreenCameraLayout,
-  StackedLayout,
 } from "@/app/recorder/_lib/types";
 import { cn } from "@/lib/utils";
 
@@ -26,12 +25,12 @@ interface RecorderPreviewProps {
   cameraStream: MediaStream | null;
   camera: RecorderSettings["camera"];
   layout: ScreenCameraLayout;
-  stacked: StackedLayout;
   onBubbleMove: (position: BubblePosition) => void;
   onBubbleResize: (size: number, position: BubblePosition) => void;
   // Set while the bubble is drawn into the recording, so it can be dragged there.
   bubbleFrame: { width: number; height: number } | null;
   bubbleHidden: boolean;
+
   countdownValue: number | null;
   onSkipCountdown: () => void;
   isFinishing: boolean;
@@ -72,7 +71,6 @@ export function RecorderPreview({
   cameraStream,
   camera,
   layout,
-  stacked,
   onBubbleMove,
   onBubbleResize,
   bubbleFrame,
@@ -104,7 +102,7 @@ export function RecorderPreview({
           className="size-full bg-black object-contain"
         />
       ) : showStacked ? (
-        <StackedPreview cameraStream={cameraStream} camera={camera} layout={stacked} />
+        <StackedPreview cameraStream={cameraStream} camera={camera} />
       ) : showIdleCamera ? (
         <StreamVideo
           stream={cameraStream}

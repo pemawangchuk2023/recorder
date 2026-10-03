@@ -33,6 +33,7 @@ import type {
   MicMode,
   RecorderSettings,
   RecorderStatus,
+  ScreenArea,
   TranscriptSegment,
 } from "@/app/recorder/_lib/types";
 import {
@@ -108,6 +109,12 @@ export interface ScreenRecorder {
   // Size of the recorded frame when the camera bubble is drawn into it (so it
   // can be dragged in the preview); null otherwise.
   bubbleFrame: { width: number; height: number } | null;
+  // Size of the recorded frame in the stacked layout, so its screen part can
+  // be dragged sideways in the preview; null otherwise.
+  stackedFrame: { width: number; height: number } | null;
+  // The shared screen itself, uncropped, while recording the stacked layout —
+  // shown in the area picker.
+  screenPreview: MediaStream | null;
   start: (settings: RecorderSettings, options: StartOptions) => Promise<void>;
   stop: () => void;
   pause: () => void;
@@ -123,6 +130,7 @@ export interface ScreenRecorder {
   setBubblePosition: (position: BubblePosition) => void;
   setBubbleHidden: (hidden: boolean) => void;
   setBubbleSize: (size: number) => void;
+  setStackedArea: (area: ScreenArea) => void;
 }
 
 export function useScreenRecorder(): ScreenRecorder {
@@ -137,6 +145,8 @@ export function useScreenRecorder(): ScreenRecorder {
   const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
   const [micAnalyser, setMicAnalyser] = useState<AnalyserNode | null>(null);
   const [bubbleFrame, setBubbleFrame] = useState<{ width: number; height: number } | null>(null);
+  const [stackedFrame, setStackedFrame] = useState<{ width: number; height: number } | null>(null);
+  const [screenPreview, setScreenPreview] = useState<MediaStream | null>(null);
 
   const countdown = useCountdown();
   const countdownResolverRef = useRef<(() => void) | null>(null);
@@ -240,6 +250,8 @@ export function useScreenRecorder(): ScreenRecorder {
 
     setMicAnalyser(null);
     setBubbleFrame(null);
+    setStackedFrame(null);
+    setScreenPreview(null);
     setPreviewStream(null);
     busyRef.current = false;
   }, [stopTimer]);
@@ -573,7 +585,10 @@ export function useScreenRecorder(): ScreenRecorder {
         }
       }
       const compositor = compositorRef.current;
-      setBubbleFrame(drawsBubble && compositor ? { width: compositor.width, height: compositor.height } : null);
+      const frame = compositor ? { width: compositor.width, height: compositor.height } : null;
+      setBubbleFrame(drawsBubble ? frame : null);
+      setStackedFrame(stacked ? frame : null);
+      setScreenPreview(stacked && frame ? new MediaStream([mainVideoTrack]) : null);
       if (stacked && !compositor) {
         newNotices.push("This browser can't build the stacked 9:16 layout — recording the screen only.");
       }
@@ -720,6 +735,10 @@ export function useScreenRecorder(): ScreenRecorder {
     compositorRef.current?.setBubbleSize(size);
   }, []);
 
+  const setStackedArea = useCallback((area: ScreenArea) => {
+    compositorRef.current?.setStackedArea(area);
+  }, []);
+
   return {
     status,
     isCountingDown: countdown.isRunning,
@@ -735,6 +754,8 @@ export function useScreenRecorder(): ScreenRecorder {
     previewStream,
     micAnalyser,
     bubbleFrame,
+    stackedFrame,
+    screenPreview,
     start,
     stop,
     pause,
@@ -748,5 +769,6 @@ export function useScreenRecorder(): ScreenRecorder {
     setBubblePosition,
     setBubbleHidden,
     setBubbleSize,
+    setStackedArea,
   };
 }

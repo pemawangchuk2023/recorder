@@ -33,9 +33,6 @@ import {
   FRAME_RATE_OPTIONS,
   LAYOUT_DESCRIPTIONS,
   LAYOUT_OPTIONS,
-  SCREEN_FIT_DESCRIPTIONS,
-  SCREEN_FIT_OPTIONS,
-  STACKED_SPLIT_RANGE,
   MIC_MODES,
   RESOLUTION_OPTIONS,
   VIDEO_CODECS,
@@ -120,8 +117,6 @@ export function SettingsPanel({
   const mode = modeOf(settings);
   const recordsScreen = settings.source === "screen";
   const stacked = mode === "screen-camera" && settings.layout === "stacked";
-  const updateStacked = (patch: Partial<RecorderSettings["stacked"]>) =>
-    update({ stacked: { ...settings.stacked, ...patch } });
   const captionsImpossible =
     captionModel.status === "unsupported" || captionModel.status === "unavailable";
 
@@ -142,30 +137,10 @@ export function SettingsPanel({
           </>
         )}
         {stacked && (
-          <>
-            <ChoiceGroup
-              label="Screen"
-              value={settings.stacked.screenFit}
-              options={SCREEN_FIT_OPTIONS}
-              onChange={(screenFit) => updateStacked({ screenFit })}
-            />
-            <Hint>{SCREEN_FIT_DESCRIPTIONS[settings.stacked.screenFit]}</Hint>
-          </>
-        )}
-        {stacked && settings.stacked.screenFit === "fill" && (
-          <>
-            <Field label={`Screen height · ${Math.round(settings.stacked.split * 100)}% (you get the rest)`}>
-              <input
-                type="range"
-                min={STACKED_SPLIT_RANGE.min}
-                max={STACKED_SPLIT_RANGE.max}
-                step={0.01}
-                value={settings.stacked.split}
-                onChange={(event) => updateStacked({ split: Number(event.target.value) })}
-                className="accent-red-600"
-              />
-            </Field>
-          </>
+          <Hint>
+            Whatever you&apos;re watching is shown complete at the top, at full width, and you fill
+            the rest. After you press Start, box just the video player to make it as big as possible.
+          </Hint>
         )}
         <ChoiceGroup
           label="Countdown"

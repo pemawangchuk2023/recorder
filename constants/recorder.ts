@@ -4,7 +4,6 @@ import type {
   CameraFraming,
   CountdownSeconds,
   ScreenCameraLayout,
-  ScreenFit,
   FrameRate,
   MicMode,
   RecorderSettings,
@@ -27,7 +26,7 @@ export const DEFAULT_SETTINGS: RecorderSettings = {
   quality: "high",
   countdown: 3,
   layout: "bubble",
-  stacked: { split: 0.5, screenFit: "fit" },
+  stacked: { area: { x: 0, y: 0, width: 1, height: 1 } },
   mic: { enabled: true, gain: 1, mode: "voice" },
   // On by default: music and video sound are only clean when captured
   // directly, never through the mic hearing the speakers.
@@ -54,27 +53,21 @@ export const RECORDING_MODES: Record<RecordingMode, { label: string; description
 
 export const LAYOUT_OPTIONS: { value: ScreenCameraLayout; label: string }[] = [
   { value: "bubble", label: "Camera bubble" },
-  { value: "stacked", label: "Stacked 9:16" },
+  { value: "stacked", label: "TikTok 9:16" },
 ];
 
 export const LAYOUT_DESCRIPTIONS: Record<ScreenCameraLayout, string> = {
   bubble: "Your screen fills the video, with you in a movable bubble.",
   stacked:
-    "A vertical video for TikTok, Reels and Shorts: what you're showing on top, you below — like a CapCut reaction.",
+    "A vertical 9:16 video for TikTok, Reels and Shorts: what you're watching on top, shown complete, and you below.",
 };
 
-export const SCREEN_FIT_OPTIONS: { value: ScreenFit; label: string }[] = [
-  { value: "fit", label: "Whole screen" },
-  { value: "fill", label: "Fill" },
-];
+// The smallest area that can be boxed, as a share of the screen's width and
+// height — any smaller and it would be blown up past sharpness.
+export const MIN_SCREEN_AREA = 0.1;
 
-export const SCREEN_FIT_DESCRIPTIONS: Record<ScreenFit, string> = {
-  fit: "Shows all of the screen edge to edge, with no bars — you get all the space below it.",
-  fill: "Gives the screen a taller space and crops its sides to fill it.",
-};
-
-// How much of the vertical frame the screen may take in "Fill".
-export const STACKED_SPLIT_RANGE = { min: 0.35, max: 0.7 };
+// TikTok fit is an even split: the screen on the top half, you on the bottom.
+export const TIKTOK_SCREEN_SHARE = 0.5;
 
 export const RESOLUTION_OPTIONS: { value: Resolution; label: string }[] = [
   { value: "720p", label: "720p HD" },

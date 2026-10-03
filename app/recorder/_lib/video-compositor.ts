@@ -5,6 +5,7 @@ import type {
   BubbleShape,
   CameraFraming,
   FrameRate,
+  ScreenArea,
   StackedLayout,
 } from "@/app/recorder/_lib/types";
 import { ROUNDED_BUBBLE_RADIUS } from "@/constants/recorder";
@@ -19,6 +20,8 @@ export interface VideoCompositor {
   setBubblePosition: (position: BubblePosition) => void;
   setBubbleHidden: (hidden: boolean) => void;
   setBubbleSize: (size: number) => void;
+  // Stacked layout: the part of the screen shown on top.
+  setStackedArea: (area: ScreenArea) => void;
   stop: () => void;
 }
 
@@ -383,6 +386,9 @@ export function createVideoCompositor(
     setBubblePosition(position: BubblePosition) {
       bubblePosition = position;
       placeBubble(position);
+    },
+    setStackedArea(area: ScreenArea) {
+      stackedPainter?.setArea(area);
     },
     setBubbleSize(next: number) {
       size = next;

@@ -1,8 +1,10 @@
 import { cameraCrop } from "@/app/recorder/_lib/bubble-geometry";
-import type { CameraFraming, StackedLayout } from "@/app/recorder/_lib/types";
+import type { CameraFraming, ScreenArea, StackedLayout } from "@/app/recorder/_lib/types";
+import { TIKTOK_SCREEN_SHARE } from "@/constants/recorder";
 
-// The vertical 9:16 layout: the shared screen on top, the camera filling the
-// part below — the TikTok/CapCut reaction look.
+// The vertical 9:16 "TikTok fit" layout, split exactly in half: the chosen
+// part of the shared screen on the top half, shown complete — never cropped
+// — and the camera filling the bottom half.
 
 export interface Region {
   x: number;
@@ -21,37 +23,26 @@ export function stackedFrameSize(maxWidth: number, maxHeight: number): { width: 
   return { width: even(maxHeight), height: even(maxWidth) };
 }
 
-// Before sharing, the screen's shape isn't known; most are 16:9.
-export const ASSUMED_SCREEN_ASPECT = 16 / 9;
-
-// The screen never takes more than this share of the height, so a tall
-// window can't squeeze the camera out.
-const MAX_SCREEN_SHARE = 0.7;
-
-// "Whole screen" gives the screen exactly its own shape — full width, no bars
-// — and the camera everything below. "Fill" uses the chosen split and crops.
-export function screenShare(layout: StackedLayout, frameAspect: number, screenAspect: number): number {
-  if (layout.screenFit === "fill") {
-    return layout.split;
-  }
-  return Math.min(MAX_SCREEN_SHARE, frameAspect / screenAspect);
+// Width ÷ height of the top half: the shape an area must have to fill it.
+export function topHalfAspect(frameWidth: number, frameHeight: number): number {
+  return frameWidth / Math.round(frameHeight * TIKTOK_SCREEN_SHARE);
 }
 
-export function stackedRegions(
-  width: number,
-  height: number,
-  layout: StackedLayout,
-  screenAspect: number
-): { screen: Region; camera: Region } {
-  const screenHeight = Math.round(height * screenShare(layout, width / height, screenAspect));
+export function stackedRegions(width: number, height: number): { screen: Region; camera: Region } {
+  const screenHeight = Math.round(height * TIKTOK_SCREEN_SHARE);
   return {
     screen: { x: 0, y: 0, width, height: screenHeight },
     camera: { x: 0, y: screenHeight, width, height: height - screenHeight },
   };
 }
 
+// The dividing line's thickness as a share of the frame's height (4 px at 1920).
+const DIVIDER_RATIO = 4 / 1920;
+
 export interface StackedPainter {
   draw: (screen: VideoFrame, webcam: VideoFrame | null) => void;
+  // The part of the screen shown on top; can change mid-recording.
+  setArea: (area: ScreenArea) => void;
 }
 
 export function createStackedPainter(
@@ -64,37 +55,32 @@ export function createStackedPainter(
     mirrorWebcam: boolean;
   }
 ): StackedPainter {
-  const { layout, framing, mirrorWebcam } = options;
+  const { framing, mirrorWebcam } = options;
+  let area = options.layout.area;
 
-  // Draws `frame` cropped to cover `region` completely.
-  const cover = (frame: VideoFrame, region: Region, crop: ReturnType<typeof cameraCrop>) => {
-    ctx.drawImage(frame, crop.sx, crop.sy, crop.sw, crop.sh, region.x, region.y, region.width, region.height);
-  };
-
+  // The whole area, scaled to fit the top half and resting on its bottom edge,
+  // right against the divider. An area of a different shape leaves plain
+  // black above it (or at its sides) — never a dark band between the halves.
   const drawScreen = (screen: VideoFrame, region: Region) => {
-    const aspect = region.width / region.height;
-    const { displayWidth: sw, displayHeight: sh } = screen;
-    const centered: CameraFraming = { zoom: 1, x: 0.5, y: 0.5 };
-
-    if (layout.screenFit === "fill") {
-      cover(screen, region, cameraCrop(sw, sh, centered, false, aspect));
-      return;
-    }
-
-    // The region already has the screen's shape, so this fills it exactly;
-    // only a window taller than the cap gets plain black at its sides.
+    const sw = screen.displayWidth * area.width;
+    const sh = screen.displayHeight * area.height;
     const scale = Math.min(region.width / sw, region.height / sh);
     const drawWidth = sw * scale;
     const drawHeight = sh * scale;
     ctx.drawImage(
       screen,
+      screen.displayWidth * area.x,
+      screen.displayHeight * area.y,
+      sw,
+      sh,
       region.x + (region.width - drawWidth) / 2,
-      region.y + (region.height - drawHeight) / 2,
+      region.y + region.height - drawHeight,
       drawWidth,
       drawHeight
     );
   };
 
+  // The camera covers its region completely, framed as chosen.
   const drawCamera = (webcam: VideoFrame, region: Region) => {
     const crop = cameraCrop(
       webcam.displayWidth,
@@ -111,14 +97,13 @@ export function createStackedPainter(
       ctx.translate(region.x * 2 + region.width, 0);
       ctx.scale(-1, 1);
     }
-    cover(webcam, region, crop);
+    ctx.drawImage(webcam, crop.sx, crop.sy, crop.sw, crop.sh, region.x, region.y, region.width, region.height);
     ctx.restore();
   };
 
   return {
     draw(screen, webcam) {
-      // Worked out per frame: the shared window can change shape mid-take.
-      const regions = stackedRegions(width, height, layout, screen.displayWidth / screen.displayHeight);
+      const regions = stackedRegions(width, height);
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, width, height);
       drawScreen(screen, regions.screen);
@@ -128,9 +113,13 @@ export function createStackedPainter(
         ctx.fillStyle = "#18181b";
         ctx.fillRect(regions.camera.x, regions.camera.y, regions.camera.width, regions.camera.height);
       }
-      // A hairline where the two halves meet keeps them visually apart.
-      ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
-      ctx.fillRect(0, regions.camera.y - 1, width, 2);
+      // One clean line where the halves meet.
+      const line = Math.max(2, Math.round(height * DIVIDER_RATIO));
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, regions.camera.y - Math.floor(line / 2), width, line);
+    },
+    setArea(next) {
+      area = next;
     },
   };
 }

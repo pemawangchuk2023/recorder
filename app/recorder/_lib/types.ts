@@ -22,14 +22,19 @@ export type RecordingMode = "screen-camera" | "screen" | "camera";
 // camera below), like TikTok and CapCut reactions.
 export type ScreenCameraLayout = "bubble" | "stacked";
 
-// In the stacked layout: the whole screen in a space of its own shape (no
-// bars), or a taller space it's cropped to fill.
-export type ScreenFit = "fit" | "fill";
+// A rectangle of the shared screen, as fractions of its width and height.
+export interface ScreenArea {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 export interface StackedLayout {
-  // Share of the frame's height given to the screen, on top.
-  split: number;
-  screenFit: ScreenFit;
+  // The part of the screen shown on top — the whole screen unless a smaller
+  // area (e.g. just the video being watched) is boxed while recording. It's
+  // shown complete, at full width; the camera fills the rest.
+  area: ScreenArea;
 }
 
 // "voice" cleans up speech (echo, noise, level); "original" keeps the sound

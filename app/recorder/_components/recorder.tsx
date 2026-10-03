@@ -5,6 +5,7 @@ import { FloatingBubble } from "@/app/recorder/_components/floating-bubble";
 import { Notices } from "@/app/recorder/_components/notices";
 import { RecorderControls } from "@/app/recorder/_components/recorder-controls";
 import { RecorderPreview } from "@/app/recorder/_components/recorder-preview";
+import { ScreenAreaPicker } from "@/app/recorder/_components/screen-area-picker";
 import { ReviewPanel } from "@/app/recorder/_components/review-panel";
 import { SettingsPanel } from "@/app/recorder/_components/settings-panel";
 import { useAudioLevel } from "@/app/recorder/_hooks/use-audio-level";
@@ -26,11 +27,13 @@ import {
   isScreenCaptureSupported,
 } from "@/app/recorder/_lib/recording-format";
 import { modeOf, withMode } from "@/app/recorder/_lib/recording-mode";
+import { topHalfAspect } from "@/app/recorder/_lib/stacked-layout";
 import type {
   BubblePosition,
   Chapter,
   RecorderSettings,
   RecordingMode,
+  ScreenArea,
   ScreenCameraLayout,
   TranscriptSegment,
 } from "@/app/recorder/_lib/types";
@@ -128,6 +131,13 @@ export function Recorder() {
     setSettings((prev) => ({ ...prev, camera: { ...prev.camera, position } }));
     recorder.setBubblePosition(position);
   };
+  // In the stacked layout, the shared screen gets a box to pick what shows
+  // on top — the column is then too tall to stay pinned.
+  const showsAreaPicker = recorder.screenPreview !== null && !recorder.isFinishing;
+  const handleStackedArea = (area: ScreenArea) => {
+    setSettings((prev) => ({ ...prev, stacked: { ...prev.stacked, area } }));
+    recorder.setStackedArea(area);
+  };
   const handleBubbleResize = (size: number, position: BubblePosition) => {
     setSettings((prev) => ({ ...prev, camera: { ...prev.camera, size, position } }));
     recorder.setBubbleSize(size);
@@ -209,7 +219,7 @@ export function Recorder() {
       <div
         className={cn(
           "flex min-w-0 flex-col gap-5",
-          recorder.status !== "stopped" && "lg:sticky lg:top-24"
+          recorder.status !== "stopped" && !showsAreaPicker && "lg:sticky lg:top-24"
         )}
       >
         {!isSupported && (
@@ -229,7 +239,6 @@ export function Recorder() {
           cameraStream={camera.stream}
           camera={settings.camera}
           layout={settings.layout}
-          stacked={settings.stacked}
           onBubbleMove={handleBubbleMove}
           onBubbleResize={handleBubbleResize}
           bubbleFrame={recorder.bubbleFrame}
@@ -284,6 +293,14 @@ export function Recorder() {
           onConfirm={handleConfirm}
           onCancelConfirm={handleCancelConfirm}
         />
+        {showsAreaPicker && recorder.screenPreview && recorder.stackedFrame && (
+          <ScreenAreaPicker
+            stream={recorder.screenPreview}
+            topAspect={topHalfAspect(recorder.stackedFrame.width, recorder.stackedFrame.height)}
+            area={settings.stacked.area}
+            onChange={handleStackedArea}
+          />
+        )}
       </div>
 
       <SettingsPanel

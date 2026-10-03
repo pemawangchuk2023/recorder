@@ -216,7 +216,7 @@ export const FAQS: readonly Faq[] = [
   {
     question: "Are recordings ready for YouTube and TikTok?",
     answer:
-      "Yes. Recordings are H.264 MP4s that YouTube recommends, and each one gets a YouTube check plus a paste-ready description with chapters, tags, a thumbnail and captions. For TikTok, Reels and Shorts, record in the Stacked 9:16 layout. Download the MP4 and upload it on the platform as usual.",
+      "Yes. Recordings are H.264 MP4s that YouTube recommends, and each one gets a YouTube check plus a paste-ready description with chapters, tags, a thumbnail and captions. For TikTok, Reels and Shorts, record in the TikTok 9:16 layout. Download the MP4 and upload it on the platform as usual.",
   },
   {
     question: "Which browsers work?",
