@@ -10,6 +10,8 @@ import { ReviewPanel } from "@/app/recorder/_components/review-panel";
 import { SettingsPanel } from "@/app/recorder/_components/settings-panel";
 import { useAudioLevel } from "@/app/recorder/_hooks/use-audio-level";
 import { useCamera } from "@/app/recorder/_hooks/use-camera";
+import { useBlankCamera } from "@/app/recorder/_hooks/use-blank-camera";
+import { CAMERA_BLANK_NOTICE } from "@/app/recorder/_lib/camera-capture";
 import { useCaptionModel } from "@/app/recorder/_hooks/use-caption-model";
 import { useDevices } from "@/app/recorder/_hooks/use-devices";
 import { useEncodableCodecs, useEncoderWarmUp } from "@/app/recorder/_hooks/use-encoder";
@@ -25,6 +27,7 @@ import { useScreenRecorder } from "@/app/recorder/_hooks/use-screen-recorder";
 import {
   isRecordingSupported,
   isScreenCaptureSupported,
+  RESOLUTIONS,
 } from "@/app/recorder/_lib/recording-format";
 import { modeOf, withMode } from "@/app/recorder/_lib/recording-mode";
 import { topHalfAspect } from "@/app/recorder/_lib/stacked-layout";
@@ -68,7 +71,12 @@ export function Recorder() {
 
   const recorder = useScreenRecorder();
   const devices = useDevices();
-  const camera = useCamera(settings.camera.enabled, settings.camera.deviceId);
+  const camera = useCamera(settings.camera.enabled, settings.camera.deviceId, {
+    ...RESOLUTIONS[settings.resolution],
+    frameRate: settings.frameRate,
+  });
+  const cameraBlank = useBlankCamera(camera.stream);
+  const cameraNotices = [cameraBlank && CAMERA_BLANK_NOTICE, camera.notice].filter((n): n is string => Boolean(n));
   const bubble = useFloatingBubble();
   const captionModel = useCaptionModel();
   const micLevel = useAudioLevel(recorder.micAnalyser);
@@ -231,7 +239,7 @@ export function Recorder() {
             up-to-date Chrome or Edge.
           </p>
         )}
-        <Notices error={recorder.error} notices={recorder.notices} />
+        <Notices error={recorder.error} notices={[...cameraNotices, ...recorder.notices]} />
         <RecorderPreview
           status={recorder.status}
           previewStream={recorder.previewStream}

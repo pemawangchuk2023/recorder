@@ -30,16 +30,19 @@ export function describeDeviceError(
   switch (errorName(cause)) {
     case "NotAllowedError":
     case "SecurityError":
-      return `${name} access is blocked — ${without}. Allow it from the icon in the address bar, then record again.`;
+      return `${name} access is blocked — ${without}. Allow it from the icon in the address bar. On Windows, also check Settings → Privacy & security → ${name}, and turn on access for desktop apps. Then record again.`;
     case "NotFoundError":
     case "OverconstrainedError":
       return `No ${device} was found — ${without}.`;
     case "NotReadableError":
-      return `Your ${device} is being used by another app — ${without}.`;
+      return `Your ${device} couldn't be opened — it may be in use by another app such as Teams or Zoom — ${without}. Close that app, then turn the ${device} off and on again.`;
     default:
       return `Your ${device} couldn't be started — ${without}.`;
   }
 }
+
+export const CAMERA_STOPPED_ERROR =
+  "Your camera stopped — it may have been unplugged or taken over by another app. Turn the camera off and on again.";
 
 // Recording on without the sound would leave only the microphone hearing the
 // speakers — muddy and distorted — so the take is stopped instead.
