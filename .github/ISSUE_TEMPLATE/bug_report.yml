@@ -1,0 +1,59 @@
+name: Bug report
+description: Something doesn't record, play, save or convert as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Please don't attach recordings that contain private information.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead? Include any message shown on the page.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the Recorder
+        2. Choose "Screen + camera", 1080p, 30 fps
+        3. Press Start…
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Recorder (screen / camera / microphone)
+        - Computer sound
+        - Live captions
+        - Review / trim / export
+        - Library
+        - Converter
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: Chrome 141, Edge 141…
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11, macOS 15, Ubuntu 24.04…
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: Browser console output
+      description: Open DevTools (F12) → Console and paste any errors.
+      render: text
