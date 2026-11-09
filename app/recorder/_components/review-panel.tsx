@@ -8,6 +8,7 @@ import { LibraryStatus } from "@/app/recorder/_components/library-status";
 import { PlayerTools } from "@/app/recorder/_components/player-tools";
 import { RecordingActions } from "@/app/recorder/_components/recording-actions";
 import { RecordingTitle } from "@/app/recorder/_components/recording-title";
+import { TikTokDownloadButton } from "@/app/recorder/_components/tiktok-download-button";
 import { TranscriptPanel } from "@/app/recorder/_components/transcript-panel";
 import { TrimEditor } from "@/app/recorder/_components/trim-editor";
 import type { LibrarySave } from "@/app/recorder/_hooks/use-library-save";
@@ -84,12 +85,18 @@ export function ReviewPanel({
             </p>
             <LibraryStatus status={library.status} />
           </div>
-          <RecordingActions
-            blob={blob}
-            filename={filename}
-            onDelete={handleDelete}
-            deleteQuestion="Delete this recording? It can't be recovered."
-          />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <RecordingActions
+              blob={blob}
+              filename={filename}
+              onDelete={handleDelete}
+              deleteQuestion="Delete this recording? It can't be recovered."
+              downloadLabel="Download PC size"
+            />
+            {info?.width && info.height && info.width > info.height ? (
+              <TikTokDownloadButton blob={blob} baseName={baseName} width={info.width} height={info.height} />
+            ) : null}
+          </div>
         </div>
       </div>
 

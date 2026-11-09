@@ -6,7 +6,6 @@ import { Notices } from "@/app/recorder/_components/notices";
 import { RecorderControls } from "@/app/recorder/_components/recorder-controls";
 import { RecorderPreview } from "@/app/recorder/_components/recorder-preview";
 import { ScreenAreaPicker } from "@/app/recorder/_components/screen-area-picker";
-import { TikTokScreenAreaPicker } from "@/app/recorder/_components/tiktok-screen-area-picker";
 import { ReviewPanel } from "@/app/recorder/_components/review-panel";
 import { SettingsPanel } from "@/app/recorder/_components/settings-panel";
 import { useAudioLevel } from "@/app/recorder/_hooks/use-audio-level";
@@ -32,7 +31,6 @@ import {
 } from "@/app/recorder/_lib/recording-format";
 import { modeOf, withMode } from "@/app/recorder/_lib/recording-mode";
 import { topHalfAspect } from "@/app/recorder/_lib/stacked-layout";
-import { isTikTokScreen } from "@/app/recorder/_lib/tiktok-screen-area";
 import type {
   BubblePosition,
   Chapter,
@@ -42,7 +40,6 @@ import type {
   ScreenCameraLayout,
   TranscriptSegment,
 } from "@/app/recorder/_lib/types";
-import { DEFAULT_SETTINGS } from "@/constants/recorder";
 import { cn } from "@/lib/utils";
 
 // A trimmed version of a finished recording, tied to the recording it came from.
@@ -149,11 +146,6 @@ export function Recorder() {
     setSettings((prev) => ({ ...prev, stacked: { ...prev.stacked, area } }));
     recorder.setStackedArea(area);
   };
-  const tiktokScreen = isTikTokScreen(settings);
-  const handleTikTokScreenArea = (area: ScreenArea) => {
-    setSettings((prev) => ({ ...prev, tiktokScreen: { ...prev.tiktokScreen, area } }));
-    recorder.setStackedArea(area);
-  };
   const handleBubbleResize = (size: number, position: BubblePosition) => {
     setSettings((prev) => ({ ...prev, camera: { ...prev.camera, size, position } }));
     recorder.setBubbleSize(size);
@@ -164,12 +156,7 @@ export function Recorder() {
     setBubbleHidden(false);
     setEdited(null);
     setConfirmAction(null);
-    // Every TikTok Screen take starts on the whole screen.
-    const wholeScreen = { ...settings.tiktokScreen, area: DEFAULT_SETTINGS.tiktokScreen.area };
-    if (tiktokScreen) {
-      setSettings((prev) => ({ ...prev, tiktokScreen: { ...prev.tiktokScreen, area: wholeScreen.area } }));
-    }
-    void recorder.start(tiktokScreen ? { ...settings, tiktokScreen: wholeScreen } : settings, {
+    void recorder.start(settings, {
       cameraStream: camera.stream,
       floatingBubbleOpen: bubble.pipWindow !== null,
     });
@@ -260,7 +247,6 @@ export function Recorder() {
           cameraStream={camera.stream}
           camera={settings.camera}
           layout={settings.layout}
-          tiktokScreen={tiktokScreen}
           onBubbleMove={handleBubbleMove}
           onBubbleResize={handleBubbleResize}
           bubbleFrame={recorder.bubbleFrame}
@@ -315,15 +301,7 @@ export function Recorder() {
           onConfirm={handleConfirm}
           onCancelConfirm={handleCancelConfirm}
         />
-        {showsAreaPicker && recorder.screenPreview && recorder.stackedFrame && tiktokScreen && (
-          <TikTokScreenAreaPicker
-            stream={recorder.screenPreview}
-            frameAspect={recorder.stackedFrame.width / recorder.stackedFrame.height}
-            area={settings.tiktokScreen.area}
-            onChange={handleTikTokScreenArea}
-          />
-        )}
-        {showsAreaPicker && recorder.screenPreview && recorder.stackedFrame && !tiktokScreen && (
+        {showsAreaPicker && recorder.screenPreview && recorder.stackedFrame && (
           <ScreenAreaPicker
             stream={recorder.screenPreview}
             topAspect={topHalfAspect(recorder.stackedFrame.width, recorder.stackedFrame.height)}

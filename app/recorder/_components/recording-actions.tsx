@@ -15,6 +15,7 @@ interface RecordingActionsProps {
   // Deletes the recording; the question is asked first.
   onDelete: () => Promise<void> | void;
   deleteQuestion: string;
+  downloadLabel?: string;
 }
 
 const RESULT_TEXT: Record<SaveResult, string> = {
@@ -28,7 +29,13 @@ const pill =
 const secondary = `${pill} ring-1 ring-border hover:bg-muted`;
 
 // Download, share and delete — the same buttons after recording and in the library.
-export function RecordingActions({ blob, filename, onDelete, deleteQuestion }: RecordingActionsProps) {
+export function RecordingActions({
+  blob,
+  filename,
+  onDelete,
+  deleteQuestion,
+  downloadLabel = "Download MP4",
+}: RecordingActionsProps) {
   const file = useMemo(() => new File([blob], filename, { type: blob.type || "video/mp4" }), [blob, filename]);
   const [isSaving, setIsSaving] = useState(false);
   const [result, setResult] = useState<SaveResult | null>(null);
@@ -103,7 +110,7 @@ export function RecordingActions({ blob, filename, onDelete, deleteQuestion }: R
         className={`${pill} bg-red-600 text-white shadow-sm shadow-red-600/30 hover:bg-red-500`}
       >
         <Download className="size-4" aria-hidden="true" />
-        {isSaving ? "Saving…" : "Download MP4"}
+        {isSaving ? "Saving…" : downloadLabel}
       </button>
     </div>
   );

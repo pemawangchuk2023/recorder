@@ -27,7 +27,6 @@ export const DEFAULT_SETTINGS: RecorderSettings = {
   countdown: 3,
   layout: "bubble",
   stacked: { area: { x: 0, y: 0, width: 1, height: 1 } },
-  tiktokScreen: { enabled: false, area: { x: 0, y: 0, width: 1, height: 1 } },
   mic: { enabled: true, gain: 1, mode: "voice" },
   // On by default: music and video sound are only clean when captured
   // directly, never through the mic hearing the speakers.
@@ -51,11 +50,6 @@ export const RECORDING_MODES: Record<RecordingMode, { label: string; description
   screen: { label: "Screen", description: "Just your screen, window or tab." },
   camera: { label: "Camera", description: "Just you, full frame." },
 };
-
-export const SCREEN_SIZE_OPTIONS: { value: "normal" | "tiktok"; label: string }[] = [
-  { value: "normal", label: "Normal" },
-  { value: "tiktok", label: "TikTok 9:16" },
-];
 
 export const LAYOUT_OPTIONS: { value: ScreenCameraLayout; label: string }[] = [
   { value: "bubble", label: "Camera bubble" },

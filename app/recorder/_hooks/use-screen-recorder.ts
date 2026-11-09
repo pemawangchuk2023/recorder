@@ -14,8 +14,6 @@ import {
   type LiveCaptioner,
 } from "@/app/recorder/_lib/live-captions";
 import { warmUpEncoder } from "@/app/recorder/_lib/mp4-encoder";
-import { isTikTokScreen } from "@/app/recorder/_lib/tiktok-screen-area";
-import { createTikTokScreenCompositor } from "@/app/recorder/_lib/tiktok-screen-compositor";
 import { watchForSilence } from "@/app/recorder/_lib/silence-watch";
 import {
   RESOLUTIONS,
@@ -563,20 +561,11 @@ export function useScreenRecorder(): ScreenRecorder {
       // frame rate keeps pauses and still screens correctly timed.
       let outputVideoTrack = mainVideoTrack;
       const mirrorsCamera = recordsCamera && settings.camera.mirror;
-      const tiktokScreen = isTikTokScreen(settings);
       const wantsCompositor =
-        tiktokScreen || useWebCodecs || composesCamera || mirrorsCamera || (captionsReady && burnIn);
+        useWebCodecs || composesCamera || mirrorsCamera || (captionsReady && burnIn);
       if (wantsCompositor && isVideoCompositorSupported()) {
         try {
-          compositorRef.current = tiktokScreen
-            ? createTikTokScreenCompositor({
-                screenTrack: mainVideoTrack,
-                maxWidth: width,
-                maxHeight: height,
-                frameRate: settings.frameRate,
-                area: settings.tiktokScreen.area,
-              })
-            : createVideoCompositor({
+          compositorRef.current = createVideoCompositor({
             screenTrack: mainVideoTrack,
             webcamTrack: composesCamera ? cameraTrack : null,
             maxWidth: width,
@@ -598,11 +587,8 @@ export function useScreenRecorder(): ScreenRecorder {
       const compositor = compositorRef.current;
       const frame = compositor ? { width: compositor.width, height: compositor.height } : null;
       setBubbleFrame(drawsBubble ? frame : null);
-      setStackedFrame(stacked || tiktokScreen ? frame : null);
-      setScreenPreview((stacked || tiktokScreen) && frame ? new MediaStream([mainVideoTrack]) : null);
-      if (tiktokScreen && !compositor) {
-        newNotices.push("This browser can't build a 9:16 video — recording the screen at its own shape.");
-      }
+      setStackedFrame(stacked ? frame : null);
+      setScreenPreview(stacked && frame ? new MediaStream([mainVideoTrack]) : null);
       if (stacked && !compositor) {
         newNotices.push("This browser can't build the stacked 9:16 layout — recording the screen only.");
       }
