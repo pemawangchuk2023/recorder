@@ -142,11 +142,8 @@ export function Recorder() {
   // In the stacked layout, the shared screen gets a box to pick what shows
   // on top — the column is then too tall to stay pinned.
   const showsAreaPicker = recorder.screenPreview !== null && !recorder.isFinishing;
-  const screenOnlyVertical = modeOf(settings) === "tiktok-screen";
   const handleStackedArea = (area: ScreenArea) => {
-    setSettings((prev) =>
-      screenOnlyVertical ? { ...prev, verticalArea: area } : { ...prev, stacked: { ...prev.stacked, area } }
-    );
+    setSettings((prev) => ({ ...prev, stacked: { ...prev.stacked, area } }));
     recorder.setStackedArea(area);
   };
   const handleBubbleResize = (size: number, position: BubblePosition) => {
@@ -307,13 +304,8 @@ export function Recorder() {
         {showsAreaPicker && recorder.screenPreview && recorder.stackedFrame && (
           <ScreenAreaPicker
             stream={recorder.screenPreview}
-            targetAspect={
-              screenOnlyVertical
-                ? recorder.stackedFrame.width / recorder.stackedFrame.height
-                : topHalfAspect(recorder.stackedFrame.width, recorder.stackedFrame.height)
-            }
-            screenOnly={screenOnlyVertical}
-            area={screenOnlyVertical ? settings.verticalArea : settings.stacked.area}
+            topAspect={topHalfAspect(recorder.stackedFrame.width, recorder.stackedFrame.height)}
+            area={settings.stacked.area}
             onChange={handleStackedArea}
           />
         )}

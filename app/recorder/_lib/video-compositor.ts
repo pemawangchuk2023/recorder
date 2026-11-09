@@ -36,8 +36,8 @@ interface CreateVideoCompositorOptions {
   size: number;
   shape: BubbleShape;
   framing: CameraFraming;
-  // Set for the vertical 9:16 layout: screen over camera, or the screen alone
-  // when there's no webcam track. The bubble options are then unused.
+  // Set for the vertical screen-over-camera layout; the bubble options are
+  // then unused.
   stacked: StackedLayout | null;
   // Mirror the camera bubble, or the whole picture when it is the camera.
   mirrorWebcam: boolean;
@@ -317,12 +317,7 @@ export function createVideoCompositor(
   };
 
   const stackedPainter = stacked
-    ? createStackedPainter(ctx, width, height, {
-        layout: stacked,
-        framing,
-        mirrorWebcam,
-        hasCamera: webcamTrack !== null,
-      })
+    ? createStackedPainter(ctx, width, height, { layout: stacked, framing, mirrorWebcam })
     : null;
 
   const draw = (screen: VideoFrame) => {

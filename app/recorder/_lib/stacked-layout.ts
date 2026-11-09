@@ -1,12 +1,10 @@
 import { cameraCrop } from "@/app/recorder/_lib/bubble-geometry";
-import { coverArea } from "@/app/recorder/_lib/screen-area";
 import type { CameraFraming, ScreenArea, StackedLayout } from "@/app/recorder/_lib/types";
 import { TIKTOK_SCREEN_SHARE } from "@/constants/recorder";
 
 // The vertical 9:16 "TikTok fit" layout, split exactly in half: the chosen
 // part of the shared screen on the top half, shown complete — never cropped
-// — and the camera filling the bottom half. Recording the screen alone, a
-// 9:16 slice of the screen fills the whole frame instead, edge to edge.
+// — and the camera filling the bottom half.
 
 export interface Region {
   x: number;
@@ -55,28 +53,10 @@ export function createStackedPainter(
     layout: StackedLayout;
     framing: CameraFraming;
     mirrorWebcam: boolean;
-    // False when the screen is recorded alone and takes the whole frame.
-    hasCamera: boolean;
   }
 ): StackedPainter {
-  const { framing, mirrorWebcam, hasCamera } = options;
+  const { framing, mirrorWebcam } = options;
   let area = options.layout.area;
-
-  // Alone in the frame, the screen always fills it: no black bars.
-  const drawScreenAlone = (screen: VideoFrame) => {
-    const crop = coverArea(area, screen.displayWidth / screen.displayHeight, width / height);
-    ctx.drawImage(
-      screen,
-      screen.displayWidth * crop.x,
-      screen.displayHeight * crop.y,
-      screen.displayWidth * crop.width,
-      screen.displayHeight * crop.height,
-      0,
-      0,
-      width,
-      height
-    );
-  };
 
   // The whole area, scaled to fit the top half and resting on its bottom edge,
   // right against the divider. An area of a different shape leaves plain
@@ -123,13 +103,9 @@ export function createStackedPainter(
 
   return {
     draw(screen, webcam) {
+      const regions = stackedRegions(width, height);
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, width, height);
-      if (!hasCamera) {
-        drawScreenAlone(screen);
-        return;
-      }
-      const regions = stackedRegions(width, height);
       drawScreen(screen, regions.screen);
       if (webcam) {
         drawCamera(webcam, regions.camera);

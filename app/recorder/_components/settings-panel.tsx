@@ -142,12 +142,6 @@ export function SettingsPanel({
             the rest. After you press Start, box just the video player to make it as big as possible.
           </Hint>
         )}
-        {mode === "tiktok-screen" && (
-          <Hint>
-            Your screen fills the whole vertical video. After you press Start, drag the box over the
-            part you want to show.
-          </Hint>
-        )}
         <ChoiceGroup
           label="Countdown"
           value={settings.countdown}

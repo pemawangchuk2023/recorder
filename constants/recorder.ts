@@ -27,9 +27,6 @@ export const DEFAULT_SETTINGS: RecorderSettings = {
   countdown: 3,
   layout: "bubble",
   stacked: { area: { x: 0, y: 0, width: 1, height: 1 } },
-  verticalScreen: false,
-  // The whole screen until it's shared, when it narrows to a 9:16 slice.
-  verticalArea: { x: 0, y: 0, width: 1, height: 1 },
   mic: { enabled: true, gain: 1, mode: "voice" },
   // On by default: music and video sound are only clean when captured
   // directly, never through the mic hearing the speakers.
@@ -52,10 +49,6 @@ export const RECORDING_MODES: Record<RecordingMode, { label: string; description
   "screen-camera": { label: "Screen + Cam", description: "Your screen and you, together in one video." },
   screen: { label: "Screen", description: "Just your screen, window or tab." },
   camera: { label: "Camera", description: "Just you, full frame." },
-  "tiktok-screen": {
-    label: "TikTok Screen",
-    description: "Just your screen, in a vertical 9:16 video for TikTok, Reels and Shorts.",
-  },
 };
 
 export const LAYOUT_OPTIONS: { value: ScreenCameraLayout; label: string }[] = [

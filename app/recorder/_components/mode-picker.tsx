@@ -1,6 +1,6 @@
 "use client";
 
-import { Monitor, PictureInPicture2, Smartphone, Video, type LucideIcon } from "lucide-react";
+import { Monitor, PictureInPicture2, Video, type LucideIcon } from "lucide-react";
 import type { RecordingMode } from "@/app/recorder/_lib/types";
 import { RECORDING_MODES } from "@/constants/recorder";
 import { cn } from "@/lib/utils";
@@ -9,7 +9,6 @@ const MODE_ICONS: Record<RecordingMode, LucideIcon> = {
   "screen-camera": PictureInPicture2,
   screen: Monitor,
   camera: Video,
-  "tiktok-screen": Smartphone,
 };
 
 const MODES = Object.keys(RECORDING_MODES) as RecordingMode[];
@@ -25,7 +24,7 @@ export function ModePicker({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <div role="group" aria-label="Recording mode" className="grid grid-cols-2 gap-2">
+      <div role="group" aria-label="Recording mode" className="grid grid-cols-3 gap-2">
         {MODES.map((mode) => {
           const Icon = MODE_ICONS[mode];
           const selected = value === mode;

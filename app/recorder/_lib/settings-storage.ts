@@ -69,8 +69,8 @@ function bubbleSize(value: unknown, fallback: number): number {
 
 // Saved by an earlier version (zoom/centre, fit or fill): start from the whole
 // screen instead.
-function screenArea(value: unknown): ScreenArea {
-  const area = (value ?? {}) as Record<string, unknown>;
+function screenArea(stacked: Record<string, unknown>): ScreenArea {
+  const area = (stacked.area ?? {}) as Record<string, unknown>;
   const { x, y, width, height } = area;
   if (
     fraction(x) &&
@@ -121,9 +121,7 @@ export function parseSettings(raw: string | null): RecorderSettings {
     quality: oneOf(stored.quality, Object.keys(VIDEO_QUALITIES) as (keyof typeof VIDEO_QUALITIES)[], d.quality),
     countdown: oneOf(stored.countdown, values(COUNTDOWN_OPTIONS), d.countdown),
     layout: oneOf(stored.layout, values(LAYOUT_OPTIONS), d.layout),
-    stacked: { area: screenArea(stacked.area) },
-    verticalScreen: typeof stored.verticalScreen === "boolean" ? stored.verticalScreen : d.verticalScreen,
-    verticalArea: screenArea(stored.verticalArea),
+    stacked: { area: screenArea(stacked) },
     mic: {
       enabled: typeof mic.enabled === "boolean" ? mic.enabled : d.mic.enabled,
       deviceId: optionalString(mic.deviceId),
