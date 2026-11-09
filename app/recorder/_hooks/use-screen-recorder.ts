@@ -579,7 +579,7 @@ export function useScreenRecorder(): ScreenRecorder {
             size: settings.camera.size,
             shape: settings.camera.shape,
             framing: settings.camera.framing,
-            stacked: stacked ? settings.stacked : null,
+            stacked: stacked ? { area: verticalScreenOnly ? settings.verticalArea : settings.stacked.area } : null,
             mirrorWebcam: settings.camera.mirror,
             mirrorScreen: mirrorsCamera,
           });

@@ -1,11 +1,12 @@
 import { cameraCrop } from "@/app/recorder/_lib/bubble-geometry";
+import { coverArea } from "@/app/recorder/_lib/screen-area";
 import type { CameraFraming, ScreenArea, StackedLayout } from "@/app/recorder/_lib/types";
 import { TIKTOK_SCREEN_SHARE } from "@/constants/recorder";
 
 // The vertical 9:16 "TikTok fit" layout, split exactly in half: the chosen
 // part of the shared screen on the top half, shown complete — never cropped
-// — and the camera filling the bottom half. Recording the screen alone, the
-// chosen part gets the whole frame instead.
+// — and the camera filling the bottom half. Recording the screen alone, a
+// 9:16 slice of the screen fills the whole frame instead, edge to edge.
 
 export interface Region {
   x: number;
@@ -61,10 +62,25 @@ export function createStackedPainter(
   const { framing, mirrorWebcam, hasCamera } = options;
   let area = options.layout.area;
 
-  // The whole area, scaled to fit its region. Above a camera it rests on the
-  // region's bottom edge, right against the divider: an area of a different
-  // shape leaves plain black above it (or at its sides) — never a dark band
-  // between the halves. Alone in the frame, it's centred.
+  // Alone in the frame, the screen always fills it: no black bars.
+  const drawScreenAlone = (screen: VideoFrame) => {
+    const crop = coverArea(area, screen.displayWidth / screen.displayHeight, width / height);
+    ctx.drawImage(
+      screen,
+      screen.displayWidth * crop.x,
+      screen.displayHeight * crop.y,
+      screen.displayWidth * crop.width,
+      screen.displayHeight * crop.height,
+      0,
+      0,
+      width,
+      height
+    );
+  };
+
+  // The whole area, scaled to fit the top half and resting on its bottom edge,
+  // right against the divider. An area of a different shape leaves plain
+  // black above it (or at its sides) — never a dark band between the halves.
   const drawScreen = (screen: VideoFrame, region: Region) => {
     const sw = screen.displayWidth * area.width;
     const sh = screen.displayHeight * area.height;
@@ -78,7 +94,7 @@ export function createStackedPainter(
       sw,
       sh,
       region.x + (region.width - drawWidth) / 2,
-      region.y + (region.height - drawHeight) * (hasCamera ? 1 : 0.5),
+      region.y + region.height - drawHeight,
       drawWidth,
       drawHeight
     );
@@ -110,7 +126,7 @@ export function createStackedPainter(
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, width, height);
       if (!hasCamera) {
-        drawScreen(screen, { x: 0, y: 0, width, height });
+        drawScreenAlone(screen);
         return;
       }
       const regions = stackedRegions(width, height);

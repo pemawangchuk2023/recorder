@@ -144,8 +144,8 @@ export function SettingsPanel({
         )}
         {mode === "tiktok-screen" && (
           <Hint>
-            After you press Start, box the part of your screen to show. “Fill the video” shapes the
-            box so it fills the vertical frame.
+            Your screen fills the whole vertical video. After you press Start, drag the box over the
+            part you want to show.
           </Hint>
         )}
         <ChoiceGroup

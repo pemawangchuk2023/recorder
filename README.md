@@ -14,7 +14,7 @@ nothing is uploaded.
 ## Features
 
 - **Recording modes**: screen + camera, screen only, camera only, or a
-  vertical 9:16 screen-only video for TikTok.
+  full-frame vertical 9:16 slice of your screen for TikTok.
 - **Sharp output**: WebCodecs H.264/HEVC MP4 at 720p, 1080p, 1440p or 4K,
   30 or 60 fps, with Standard / High / Max detail.
 - **Camera bubble**: circle or rounded square, movable and resizable, mirror

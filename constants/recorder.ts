@@ -28,6 +28,8 @@ export const DEFAULT_SETTINGS: RecorderSettings = {
   layout: "bubble",
   stacked: { area: { x: 0, y: 0, width: 1, height: 1 } },
   verticalScreen: false,
+  // The whole screen until it's shared, when it narrows to a 9:16 slice.
+  verticalArea: { x: 0, y: 0, width: 1, height: 1 },
   mic: { enabled: true, gain: 1, mode: "voice" },
   // On by default: music and video sound are only clean when captured
   // directly, never through the mic hearing the speakers.

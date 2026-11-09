@@ -79,6 +79,8 @@ export interface RecorderSettings {
   stacked: StackedLayout;
   // Screen-only recordings come out vertical (9:16) rather than screen-shaped.
   verticalScreen: boolean;
+  // The part of the screen those vertical recordings show.
+  verticalArea: ScreenArea;
   mic: { enabled: boolean; deviceId?: string; gain: number; mode: MicMode };
   // Sound playing on the computer, which only a shared Chrome tab (or a
   // screen, where Chrome supports it) can include.

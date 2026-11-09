@@ -32,7 +32,9 @@ export function StackedPreview({
           <AppWindow className="size-6 text-white/80" aria-hidden="true" />
           <p className="text-xs font-semibold text-white sm:text-sm">Your screen</p>
           <p className="text-[11px] leading-snug text-zinc-400 sm:text-xs">
-            Shown complete — box the part you want once you press Start
+            {screenOnly
+              ? "Fills the whole video — choose the part you want once you press Start"
+              : "Shown complete — box the part you want once you press Start"}
           </p>
         </div>
         {!screenOnly && (

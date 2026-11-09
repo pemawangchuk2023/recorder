@@ -144,7 +144,9 @@ export function Recorder() {
   const showsAreaPicker = recorder.screenPreview !== null && !recorder.isFinishing;
   const screenOnlyVertical = modeOf(settings) === "tiktok-screen";
   const handleStackedArea = (area: ScreenArea) => {
-    setSettings((prev) => ({ ...prev, stacked: { ...prev.stacked, area } }));
+    setSettings((prev) =>
+      screenOnlyVertical ? { ...prev, verticalArea: area } : { ...prev, stacked: { ...prev.stacked, area } }
+    );
     recorder.setStackedArea(area);
   };
   const handleBubbleResize = (size: number, position: BubblePosition) => {
@@ -311,7 +313,7 @@ export function Recorder() {
                 : topHalfAspect(recorder.stackedFrame.width, recorder.stackedFrame.height)
             }
             screenOnly={screenOnlyVertical}
-            area={settings.stacked.area}
+            area={screenOnlyVertical ? settings.verticalArea : settings.stacked.area}
             onChange={handleStackedArea}
           />
         )}
