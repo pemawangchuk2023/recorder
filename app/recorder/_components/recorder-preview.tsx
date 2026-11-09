@@ -6,6 +6,7 @@ import { CameraBubblePreview } from "@/app/recorder/_components/camera-bubble-pr
 import { DraggableBubble } from "@/app/recorder/_components/draggable-bubble";
 import { StackedPreview } from "@/app/recorder/_components/stacked-preview";
 import { StreamVideo } from "@/app/recorder/_components/stream-video";
+import { TikTokScreenPreview } from "@/app/recorder/_components/tiktok-screen-preview";
 import { formatTime } from "@/app/recorder/_lib/format-time";
 import type {
   BubblePosition,
@@ -25,6 +26,8 @@ interface RecorderPreviewProps {
   cameraStream: MediaStream | null;
   camera: RecorderSettings["camera"];
   layout: ScreenCameraLayout;
+  // Screen mode, recording at TikTok size.
+  tiktokScreen: boolean;
   onBubbleMove: (position: BubblePosition) => void;
   onBubbleResize: (size: number, position: BubblePosition) => void;
   // Set while the bubble is drawn into the recording, so it can be dragged there.
@@ -71,6 +74,7 @@ export function RecorderPreview({
   cameraStream,
   camera,
   layout,
+  tiktokScreen,
   onBubbleMove,
   onBubbleResize,
   bubbleFrame,
@@ -85,6 +89,7 @@ export function RecorderPreview({
   const showPlayback = status === "stopped" && playbackUrl !== null && !previewStream;
   const isActive = status === "recording" || status === "paused";
   const showIdleCamera = !previewStream && !showPlayback && mode === "camera" && cameraStream;
+  const showTikTokScreen = !previewStream && !showPlayback && tiktokScreen;
   const showStacked = !previewStream && !showPlayback && mode === "screen-camera" && layout === "stacked";
   const showBubble =
     !previewStream && !showPlayback && mode === "screen-camera" && layout === "bubble" && cameraStream;
@@ -101,6 +106,8 @@ export function RecorderPreview({
           playsInline
           className="size-full bg-black object-contain"
         />
+      ) : showTikTokScreen ? (
+        <TikTokScreenPreview />
       ) : showStacked ? (
         <StackedPreview cameraStream={cameraStream} camera={camera} />
       ) : showIdleCamera ? (

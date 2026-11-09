@@ -35,6 +35,7 @@ import {
   LAYOUT_OPTIONS,
   MIC_MODES,
   RESOLUTION_OPTIONS,
+  SCREEN_SIZE_OPTIONS,
   VIDEO_CODECS,
   VIDEO_QUALITIES,
 } from "@/constants/recorder";
@@ -141,6 +142,24 @@ export function SettingsPanel({
             Whatever you&apos;re watching is shown complete at the top, at full width, and you fill
             the rest. After you press Start, box just the video player to make it as big as possible.
           </Hint>
+        )}
+        {mode === "screen" && (
+          <>
+            <ChoiceGroup
+              label="Size"
+              value={settings.tiktokScreen.enabled ? "tiktok" : "normal"}
+              options={SCREEN_SIZE_OPTIONS}
+              onChange={(size) =>
+                update({ tiktokScreen: { ...settings.tiktokScreen, enabled: size === "tiktok" } })
+              }
+            />
+            {settings.tiktokScreen.enabled && (
+              <Hint>
+                Saves a vertical 9:16 video for TikTok, Reels and Shorts. Your whole screen is shown
+                complete, with black above and below. After you press Start, box a part to make it bigger.
+              </Hint>
+            )}
+          </>
         )}
         <ChoiceGroup
           label="Countdown"

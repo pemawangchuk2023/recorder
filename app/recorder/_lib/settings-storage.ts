@@ -111,6 +111,7 @@ export function parseSettings(raw: string | null): RecorderSettings {
   const camera = (stored.camera ?? {}) as Record<string, unknown>;
   const captions = (stored.captions ?? {}) as Record<string, unknown>;
   const stacked = (stored.stacked ?? {}) as Record<string, unknown>;
+  const tiktokScreen = (stored.tiktokScreen ?? {}) as Record<string, unknown>;
   const values = <T>(options: readonly { value: T }[]) => options.map((option) => option.value);
 
   return {
@@ -122,6 +123,10 @@ export function parseSettings(raw: string | null): RecorderSettings {
     countdown: oneOf(stored.countdown, values(COUNTDOWN_OPTIONS), d.countdown),
     layout: oneOf(stored.layout, values(LAYOUT_OPTIONS), d.layout),
     stacked: { area: screenArea(stacked) },
+    tiktokScreen: {
+      enabled: typeof tiktokScreen.enabled === "boolean" ? tiktokScreen.enabled : d.tiktokScreen.enabled,
+      area: screenArea(tiktokScreen),
+    },
     mic: {
       enabled: typeof mic.enabled === "boolean" ? mic.enabled : d.mic.enabled,
       deviceId: optionalString(mic.deviceId),

@@ -76,6 +76,8 @@ export interface RecorderSettings {
   countdown: CountdownSeconds;
   layout: ScreenCameraLayout;
   stacked: StackedLayout;
+  // Screen mode's TikTok size: a vertical 9:16 video; area is what's shown.
+  tiktokScreen: { enabled: boolean; area: ScreenArea };
   mic: { enabled: boolean; deviceId?: string; gain: number; mode: MicMode };
   // Sound playing on the computer, which only a shared Chrome tab (or a
   // screen, where Chrome supports it) can include.
