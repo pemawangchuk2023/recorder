@@ -142,6 +142,7 @@ export function Recorder() {
   // In the stacked layout, the shared screen gets a box to pick what shows
   // on top — the column is then too tall to stay pinned.
   const showsAreaPicker = recorder.screenPreview !== null && !recorder.isFinishing;
+  const screenOnlyVertical = modeOf(settings) === "tiktok-screen";
   const handleStackedArea = (area: ScreenArea) => {
     setSettings((prev) => ({ ...prev, stacked: { ...prev.stacked, area } }));
     recorder.setStackedArea(area);
@@ -304,7 +305,12 @@ export function Recorder() {
         {showsAreaPicker && recorder.screenPreview && recorder.stackedFrame && (
           <ScreenAreaPicker
             stream={recorder.screenPreview}
-            topAspect={topHalfAspect(recorder.stackedFrame.width, recorder.stackedFrame.height)}
+            targetAspect={
+              screenOnlyVertical
+                ? recorder.stackedFrame.width / recorder.stackedFrame.height
+                : topHalfAspect(recorder.stackedFrame.width, recorder.stackedFrame.height)
+            }
+            screenOnly={screenOnlyVertical}
             area={settings.stacked.area}
             onChange={handleStackedArea}
           />

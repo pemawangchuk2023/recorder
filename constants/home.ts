@@ -135,7 +135,7 @@ export const TOOLS: readonly Tool[] = [
     cta: "Open the recorder",
     icon: "screen",
     points: [
-      "Screen + camera, screen only, or camera only",
+      "Screen + camera, screen only, camera only, or vertical screen for TikTok",
       "Up to 4K at 60 fps, with a circle or rounded camera bubble",
       "Microphone and computer sound at separate volumes",
       "Live captions, transcript and .srt download",

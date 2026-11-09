@@ -14,8 +14,9 @@ export type VideoQuality = "standard" | "high" | "max";
 // Seconds of countdown before a take starts; 0 starts right away.
 export type CountdownSeconds = 0 | 3 | 5 | 10;
 
-// What goes into the video: Loom's three recording modes.
-export type RecordingMode = "screen-camera" | "screen" | "camera";
+// What goes into the video: Loom's three recording modes, plus the screen
+// alone in a vertical 9:16 video for TikTok.
+export type RecordingMode = "screen-camera" | "screen" | "camera" | "tiktok-screen";
 
 // How screen and camera share the frame in Screen + Cam: a movable bubble
 // over the screen, or stacked in a vertical 9:16 video (screen on top,
@@ -76,6 +77,8 @@ export interface RecorderSettings {
   countdown: CountdownSeconds;
   layout: ScreenCameraLayout;
   stacked: StackedLayout;
+  // Screen-only recordings come out vertical (9:16) rather than screen-shaped.
+  verticalScreen: boolean;
   mic: { enabled: boolean; deviceId?: string; gain: number; mode: MicMode };
   // Sound playing on the computer, which only a shared Chrome tab (or a
   // screen, where Chrome supports it) can include.

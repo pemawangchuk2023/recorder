@@ -9,8 +9,10 @@ import { cn } from "@/lib/utils";
 interface ScreenAreaPickerProps {
   // The shared screen, uncropped.
   stream: MediaStream;
-  // Width ÷ height of the top half; an area of this shape fills it exactly.
-  topAspect: number;
+  // Width ÷ height of where the area is shown; an area of this shape fills it exactly.
+  targetAspect: number;
+  // The area fills the whole video rather than its top half.
+  screenOnly: boolean;
   area: ScreenArea;
   onChange: (area: ScreenArea) => void;
 }
@@ -39,8 +41,8 @@ const isWholeScreen = (area: ScreenArea) =>
   area.x === 0 && area.y === 0 && area.width === 1 && area.height === 1;
 
 // The whole shared screen with a box on it. Whatever is inside the box —
-// any shape — is shown complete at the top of the vertical video.
-export function ScreenAreaPicker({ stream, topAspect, area, onChange }: ScreenAreaPickerProps) {
+// any shape — is shown complete in the vertical video.
+export function ScreenAreaPicker({ stream, targetAspect, screenOnly, area, onChange }: ScreenAreaPickerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const gestureRef = useRef<Gesture | null>(null);
@@ -143,14 +145,14 @@ export function ScreenAreaPicker({ stream, topAspect, area, onChange }: ScreenAr
     }
   };
 
-  // Reshapes the box, around its centre, to the top half's shape — as tall as
+  // Reshapes the box, around its centre, to the target's shape — as tall as
   // it is now, or as large as fits the screen.
-  const fillTopHalf = () => {
+  const fillTarget = () => {
     let height = area.height;
-    let width = (height * topAspect) / aspect;
+    let width = (height * targetAspect) / aspect;
     if (width > 1) {
       width = 1;
-      height = aspect / topAspect;
+      height = aspect / targetAspect;
     }
     height = Math.min(1, height);
     const centerX = area.x + area.width / 2;
@@ -162,7 +164,7 @@ export function ScreenAreaPicker({ stream, topAspect, area, onChange }: ScreenAr
       height,
     });
   };
-  const fillsTopHalf = Math.abs((area.width * aspect) / area.height - topAspect) < 0.01;
+  const fillsTarget = Math.abs((area.width * aspect) / area.height - targetAspect) < 0.01;
 
   const percent = (value: number) => `${value * 100}%`;
   const whole = isWholeScreen(area);
@@ -172,17 +174,17 @@ export function ScreenAreaPicker({ stream, topAspect, area, onChange }: ScreenAr
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 id="area-heading" className="flex items-center gap-2 text-base font-semibold">
           <Crop className="size-4 text-brand" aria-hidden="true" />
-          What shows on top
+          {screenOnly ? "What shows in the video" : "What shows on top"}
         </h3>
         <div className="flex flex-wrap gap-1">
           <button
             type="button"
-            onClick={fillTopHalf}
-            disabled={fillsTopHalf}
+            onClick={fillTarget}
+            disabled={fillsTarget}
             className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
           >
             <RectangleVertical className="size-3.5" aria-hidden="true" />
-            Fill top half
+            {screenOnly ? "Fill the video" : "Fill top half"}
           </button>
           <button
             type="button"
@@ -206,7 +208,7 @@ export function ScreenAreaPicker({ stream, topAspect, area, onChange }: ScreenAr
           <div
             role="group"
             tabIndex={0}
-            aria-label="Area shown on top of the video. Drag to move it, drag a corner to resize, or use the arrow keys."
+            aria-label={`Area shown ${screenOnly ? "in" : "on top of"} the video. Drag to move it, drag a corner to resize, or use the arrow keys.`}
             onPointerDown={(event) => begin(event, { kind: "move", startX: event.clientX, startY: event.clientY, start: area })}
             onPointerMove={move}
             onPointerUp={end}
@@ -225,7 +227,7 @@ export function ScreenAreaPicker({ stream, topAspect, area, onChange }: ScreenAr
             }}
           >
             <span className="absolute top-1.5 left-8 rounded bg-black/70 px-1.5 py-0.5 text-[11px] font-semibold text-white">
-              {whole ? "Whole screen" : "Shown on top"}
+              {whole ? "Whole screen" : screenOnly ? "Shown in the video" : "Shown on top"}
             </span>
             {CORNERS.map(({ corner, className, cursor }) => (
               <span
@@ -247,9 +249,19 @@ export function ScreenAreaPicker({ stream, topAspect, area, onChange }: ScreenAr
         </div>
       </div>
       <p className="text-sm text-muted-foreground">
-        Everything inside the box is shown complete on the top half of your TikTok video — nothing
-        cut. Box just the video you&apos;re watching to make it big; “Fill top half” shapes the box so
-        it fills the half edge to edge. The recording follows right away.
+        {screenOnly ? (
+          <>
+            Everything inside the box is shown complete in your TikTok video — nothing cut. A wide
+            box leaves black above and below it; “Fill the video” shapes the box so it fills the
+            vertical frame edge to edge. The recording follows right away.
+          </>
+        ) : (
+          <>
+            Everything inside the box is shown complete on the top half of your TikTok video — nothing
+            cut. Box just the video you&apos;re watching to make it big; “Fill top half” shapes the box so
+            it fills the half edge to edge. The recording follows right away.
+          </>
+        )}
       </p>
     </section>
   );

@@ -85,7 +85,10 @@ export function RecorderPreview({
   const showPlayback = status === "stopped" && playbackUrl !== null && !previewStream;
   const isActive = status === "recording" || status === "paused";
   const showIdleCamera = !previewStream && !showPlayback && mode === "camera" && cameraStream;
-  const showStacked = !previewStream && !showPlayback && mode === "screen-camera" && layout === "stacked";
+  const showStacked =
+    !previewStream &&
+    !showPlayback &&
+    ((mode === "screen-camera" && layout === "stacked") || mode === "tiktok-screen");
   const showBubble =
     !previewStream && !showPlayback && mode === "screen-camera" && layout === "bubble" && cameraStream;
 
@@ -102,7 +105,7 @@ export function RecorderPreview({
           className="size-full bg-black object-contain"
         />
       ) : showStacked ? (
-        <StackedPreview cameraStream={cameraStream} camera={camera} />
+        <StackedPreview cameraStream={cameraStream} camera={camera} screenOnly={mode === "tiktok-screen"} />
       ) : showIdleCamera ? (
         <StreamVideo
           stream={cameraStream}

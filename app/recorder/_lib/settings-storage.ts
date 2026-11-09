@@ -122,6 +122,7 @@ export function parseSettings(raw: string | null): RecorderSettings {
     countdown: oneOf(stored.countdown, values(COUNTDOWN_OPTIONS), d.countdown),
     layout: oneOf(stored.layout, values(LAYOUT_OPTIONS), d.layout),
     stacked: { area: screenArea(stacked) },
+    verticalScreen: typeof stored.verticalScreen === "boolean" ? stored.verticalScreen : d.verticalScreen,
     mic: {
       enabled: typeof mic.enabled === "boolean" ? mic.enabled : d.mic.enabled,
       deviceId: optionalString(mic.deviceId),

@@ -6,13 +6,17 @@ export function modeOf(settings: RecorderSettings): RecordingMode {
   if (settings.source === "camera") {
     return "camera";
   }
-  return settings.camera.enabled ? "screen-camera" : "screen";
+  if (settings.camera.enabled) {
+    return "screen-camera";
+  }
+  return settings.verticalScreen ? "tiktok-screen" : "screen";
 }
 
 export function withMode(settings: RecorderSettings, mode: RecordingMode): RecorderSettings {
   return {
     ...settings,
     source: mode === "camera" ? "camera" : "screen",
-    camera: { ...settings.camera, enabled: mode !== "screen" },
+    verticalScreen: mode === "tiktok-screen",
+    camera: { ...settings.camera, enabled: mode === "screen-camera" || mode === "camera" },
   };
 }

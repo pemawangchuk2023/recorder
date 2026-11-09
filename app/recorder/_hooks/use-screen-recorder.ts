@@ -14,6 +14,7 @@ import {
   type LiveCaptioner,
 } from "@/app/recorder/_lib/live-captions";
 import { warmUpEncoder } from "@/app/recorder/_lib/mp4-encoder";
+import { modeOf } from "@/app/recorder/_lib/recording-mode";
 import { watchForSilence } from "@/app/recorder/_lib/silence-watch";
 import {
   RESOLUTIONS,
@@ -542,8 +543,11 @@ export function useScreenRecorder(): ScreenRecorder {
         }
       }
 
-      // The stacked 9:16 layout always puts the camera in its own part of the frame.
-      const stacked = !recordsCamera && cameraTrack !== null && settings.layout === "stacked";
+      // The stacked 9:16 layout always puts the camera in its own part of the
+      // frame; TikTok Screen uses the same 9:16 frame with no camera at all.
+      const verticalScreenOnly = modeOf(settings) === "tiktok-screen";
+      const stacked =
+        verticalScreenOnly || (!recordsCamera && cameraTrack !== null && settings.layout === "stacked");
       // Otherwise draw the camera bubble into the video, unless this is a
       // camera-only recording or the floating bubble is already part of a
       // full-screen capture.
@@ -590,7 +594,11 @@ export function useScreenRecorder(): ScreenRecorder {
       setStackedFrame(stacked ? frame : null);
       setScreenPreview(stacked && frame ? new MediaStream([mainVideoTrack]) : null);
       if (stacked && !compositor) {
-        newNotices.push("This browser can't build the stacked 9:16 layout — recording the screen only.");
+        newNotices.push(
+          verticalScreenOnly
+            ? "This browser can't build a 9:16 video — recording the screen at its own shape."
+            : "This browser can't build the stacked 9:16 layout — recording the screen only."
+        );
       }
       if (drawsBubble && !compositor) {
         newNotices.push("This browser can't draw the camera bubble into the video — recording the screen only.");
