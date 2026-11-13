@@ -10,11 +10,9 @@ import { AddPages } from "@/app/scan/_components/add-pages";
 import { PageEditor } from "@/app/scan/_components/page-editor";
 import { PAGE_SIZES, type PageSize } from "@/app/scan/_lib/pdf";
 import {
-  addPhotos,
   deleteDocument,
   deletePage,
   documentPdf,
-  isStorageFull,
   movePage,
   renameDocument,
   type ScanDocument,
@@ -108,12 +106,13 @@ function PageCard({
 interface DocumentViewProps {
   document: ScanDocument;
   pages: ScanPage[];
+  // A page to open for adjusting straight away (one just added from photos).
+  reviewPageId: string | null;
   onDeleted: () => void;
 }
 
-export function DocumentView({ document, pages, onDeleted }: DocumentViewProps) {
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+export function DocumentView({ document, pages, reviewPageId, onDeleted }: DocumentViewProps) {
+  const [editingId, setEditingId] = useState<string | null>(reviewPageId);
   const [working, setWorking] = useState<"share" | "download" | "email" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState<PageSize>("a4");
@@ -121,25 +120,6 @@ export function DocumentView({ document, pages, onDeleted }: DocumentViewProps) 
   const shareable = useMemo(() => canSharePdf(), []);
   const filename = titleToFilename(document.title, "pdf");
   const editing = pages.find((page) => page.id === editingId);
-
-  const add = async (photos: Blob[]) => {
-    setMessage(null);
-    setBusy(`Preparing page 1 of ${photos.length}…`);
-    try {
-      await addPhotos(document.id, photos, (done, total) =>
-        setBusy(done < total ? `Preparing page ${done + 1} of ${total}…` : null)
-      );
-    } catch (cause) {
-      setMessage(
-        isStorageFull(cause)
-          ? "Browser storage is full — not every page could be added. Delete scans or recordings you no longer need."
-          : cause instanceof Error
-            ? cause.message
-            : "A page couldn't be added."
-      );
-    }
-    setBusy(null);
-  };
 
   const makePdf = async (): Promise<File> => new File([await documentPdf(document, pageSize)], filename, { type: "application/pdf" });
 
@@ -263,7 +243,7 @@ export function DocumentView({ document, pages, onDeleted }: DocumentViewProps) 
         <PageEditor key={editing.id} page={editing} pageNumber={pages.indexOf(editing) + 1} onClose={() => setEditingId(null)} />
       ) : (
         <>
-          <AddPages onPhotos={(photos) => void add(photos)} busy={busy} />
+          <AddPages documentId={document.id} onAdded={(_, review) => review && setEditingId(review)} />
           {pages.length > 0 ? (
             <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
               {pages.map((page, index) => (

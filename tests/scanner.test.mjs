@@ -264,6 +264,32 @@ test("uneven lighting is evened out across the page", () => {
   assert.ok(right > 215);
 });
 
+test("paper photographed under yellowish light comes out white, not yellow", () => {
+  const width = 240;
+  const height = 240;
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const shade = 1 - x / 600;
+      // Warm paper (little blue), with rows of dark ink and one blue stamp.
+      const ink = y % 24 < 4 && x > 20 && x < 220;
+      const stamp = x > 150 && x < 200 && y > 180 && y < 215;
+      const colour = stamp ? [40, 70, 200] : ink ? [50, 45, 35] : [200, 185, 130];
+      data.set([colour[0] * shade, colour[1] * shade, colour[2] * shade, 255], (y * width + x) * 4);
+    }
+  }
+  applyFilter("enhance", data, width, height);
+  const at = (x, y) => [...data.subarray((y * width + x) * 4, (y * width + x) * 4 + 3)];
+  for (const [x, y] of [[10, 10], [120, 130], [230, 100]]) {
+    const [r, g, b] = at(x, y);
+    assert.ok(r > 235 && g > 235 && b > 235, `paper at ${x},${y} is ${r},${g},${b}`);
+  }
+  const ink = at(100, 49);
+  assert.ok(ink.every((level) => level < 90), `ink is ${ink}`);
+  const stamp = at(175, 200);
+  assert.ok(stamp[2] > stamp[0] + 60, `the blue stamp lost its colour: ${stamp}`);
+});
+
 test("the original look leaves the pixels alone", () => {
   const data = new Uint8ClampedArray([10, 20, 30, 255, 200, 100, 50, 255]);
   applyFilter("original", data, 2, 1);

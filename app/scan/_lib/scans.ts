@@ -173,6 +173,51 @@ async function firstPageOf(document: ScanDocument): Promise<ScanPage | null> {
   return page ?? null;
 }
 
+function newDocument(): ScanDocument {
+  const now = Date.now();
+  return {
+    id: crypto.randomUUID(),
+    title: `Scan · ${TITLE_DATE.format(new Date(now))}`,
+    createdAt: now,
+    updatedAt: now,
+    pageIds: [],
+    thumbnail: null,
+    size: 0,
+  };
+}
+
+export const DEFAULT_TONE = { brightness: 0, contrast: 0 };
+
+// Adds one page that has already been looked over and adjusted (the camera
+// flow), creating the document when none is given. `photo` must have been
+// through preparePhoto().
+export async function addPage(
+  documentId: string | null,
+  photo: Blob,
+  settings: PageSettings,
+  edgesFound: boolean
+): Promise<ScanDocument> {
+  const db = await openDb();
+  const existing = documentId ? await getDocument(documentId) : null;
+  const document = existing ?? newDocument();
+  const rendered = await renderPage(photo, settings);
+  const page: ScanPage = {
+    id: crypto.randomUUID(),
+    documentId: document.id,
+    photo,
+    ...settings,
+    ...rendered,
+    edgesFound,
+  };
+  const transaction = db.transaction(PAGES, "readwrite");
+  transaction.objectStore(PAGES).put(page);
+  await done(transaction);
+  const next = { ...document, pageIds: [...document.pageIds, page.id] };
+  await saveDocument(next, document.pageIds.length === 0 ? page : undefined);
+  notify();
+  return next;
+}
+
 // Adds photos as new pages at the end, creating the document when none is
 // given. Each photo is straightened and cleaned up on the way in.
 // `onProgress` is called before each photo with how many are done.
@@ -180,28 +225,18 @@ export async function addPhotos(
   documentId: string | null,
   photos: Blob[],
   onProgress?: (done: number, total: number) => void
-): Promise<ScanDocument> {
+): Promise<{ document: ScanDocument; added: string[] }> {
   const db = await openDb();
-  const now = Date.now();
-  let document: ScanDocument =
-    (documentId ? await getDocument(documentId) : null) ??
-    ({
-      id: crypto.randomUUID(),
-      title: `Scan · ${TITLE_DATE.format(new Date(now))}`,
-      createdAt: now,
-      updatedAt: now,
-      pageIds: [],
-      thumbnail: null,
-      size: 0,
-    } satisfies ScanDocument);
+  let document: ScanDocument = (documentId ? await getDocument(documentId) : null) ?? newDocument();
   const hadPages = document.pageIds.length > 0;
+  const added: string[] = [];
 
   try {
     for (const [index, file] of photos.entries()) {
       onProgress?.(index, photos.length);
       const photo = await preparePhoto(file);
       const { corners, found } = await findCorners(photo);
-      const settings: PageSettings = { corners, filter: DEFAULT_FILTER, turns: 0 };
+      const settings: PageSettings = { corners, filter: DEFAULT_FILTER, turns: 0, ...DEFAULT_TONE };
       const rendered = await renderPage(photo, settings);
       const page: ScanPage = {
         id: crypto.randomUUID(),
@@ -215,6 +250,7 @@ export async function addPhotos(
       transaction.objectStore(PAGES).put(page);
       await done(transaction);
       document = { ...document, pageIds: [...document.pageIds, page.id] };
+      added.push(page.id);
     }
   } finally {
     // Whatever was added before a failure is kept and shown.
@@ -224,7 +260,7 @@ export async function addPhotos(
     }
   }
   onProgress?.(photos.length, photos.length);
-  return document;
+  return { document, added };
 }
 
 // Re-makes a page with new corners, look or rotation.

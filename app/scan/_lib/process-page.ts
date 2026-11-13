@@ -17,6 +17,9 @@ export interface PageSettings {
   filter: ScanFilter;
   // Quarter turns clockwise.
   turns: number;
+  // Each -100 to 100; missing on pages scanned before these existed.
+  brightness?: number;
+  contrast?: number;
 }
 
 export const NOT_A_PICTURE =
@@ -89,6 +92,25 @@ function canvasOf(pixels: Pixels): AnyCanvas {
   return canvas;
 }
 
+// A small grey copy of whatever is showing in a camera view or picture,
+// for finding the page in it many times a second.
+export function grayCopy(
+  source: CanvasImageSource,
+  sourceWidth: number,
+  sourceHeight: number
+): { gray: Uint8Array; width: number; height: number } {
+  const scale = Math.min(1, DETECT_SIDE / Math.max(sourceWidth, sourceHeight));
+  const canvas = createCanvas(Math.max(1, Math.round(sourceWidth * scale)), Math.max(1, Math.round(sourceHeight * scale)));
+  const ctx = context(canvas);
+  ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+  const { data, width, height } = pixelsOf(canvas);
+  const gray = new Uint8Array(width * height);
+  for (let index = 0; index < gray.length; index++) {
+    gray[index] = (data[index * 4] * 299 + data[index * 4 + 1] * 587 + data[index * 4 + 2] * 114) / 1000;
+  }
+  return { gray, width, height };
+}
+
 // A photo as it will be stored: a JPEG of sensible size, upright.
 export async function preparePhoto(file: Blob): Promise<Blob> {
   return toJpeg(await drawPhoto(file, MAX_PHOTO_SIDE), 0.92);
@@ -127,7 +149,10 @@ export async function renderPage(
   const source = pixelsOf(await drawPhoto(photo, Math.min(MAX_PHOTO_SIDE, maxSide * 1.5)));
   const corners = isConvex(settings.corners) ? settings.corners : FULL_FRAME;
   const page = rotate(straighten(source, corners, maxSide), settings.turns);
-  applyFilter(settings.filter, page.data, page.width, page.height);
+  applyFilter(settings.filter, page.data, page.width, page.height, {
+    brightness: settings.brightness ?? 0,
+    contrast: settings.contrast ?? 0,
+  });
   // Black-and-white pages are all hard edges, which JPEG handles badly at
   // normal quality; a higher setting keeps text clean.
   const image = await toJpeg(canvasOf(page), settings.filter === "bw" ? 0.92 : JPEG_QUALITY);

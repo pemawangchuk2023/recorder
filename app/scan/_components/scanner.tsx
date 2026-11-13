@@ -3,12 +3,11 @@
 import { FileText, Loader2, ScanLine } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
 import { useBlobUrl } from "@/app/edit/_hooks/use-blob-url";
 import { AddPages } from "@/app/scan/_components/add-pages";
 import { DocumentView } from "@/app/scan/_components/document-view";
 import { useScanDocument, useScans } from "@/app/scan/_hooks/use-scans";
-import { addPhotos, isStorageFull, type ScanDocument } from "@/app/scan/_lib/scans";
+import type { ScanDocument } from "@/app/scan/_lib/scans";
 import { formatBytes } from "@/lib/format-bytes";
 import { formatRecordedAt } from "@/lib/format-date";
 
@@ -56,7 +55,7 @@ function DocumentCard({ document }: { document: ScanDocument }) {
   );
 }
 
-function OpenDocument({ id }: { id: string }) {
+function OpenDocument({ id, reviewPageId }: { id: string; reviewPageId: string | null }) {
   const state = useScanDocument(id);
   const router = useRouter();
   if (state.status === "loading") {
@@ -75,19 +74,25 @@ function OpenDocument({ id }: { id: string }) {
       </div>
     );
   }
-  return <DocumentView document={state.document} pages={state.pages} onDeleted={() => router.replace("/scan")} />;
+  return (
+    <DocumentView
+      document={state.document}
+      pages={state.pages}
+      reviewPageId={reviewPageId}
+      onDeleted={() => router.replace("/scan")}
+    />
+  );
 }
 
 // The scanner's home: start a new document, or open one made earlier.
 export function Scanner() {
-  const id = useSearchParams().get("d");
+  const params = useSearchParams();
+  const id = params.get("d");
   const scans = useScans();
   const router = useRouter();
-  const [busy, setBusy] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
   if (id) {
-    return <OpenDocument key={id} id={id} />;
+    return <OpenDocument key={id} id={id} reviewPageId={params.get("p")} />;
   }
   if (scans.status === "loading") {
     return <Loading label="Loading your scans" />;
@@ -95,26 +100,6 @@ export function Scanner() {
   if (scans.status === "error") {
     return <Problem>{scans.message}</Problem>;
   }
-
-  const start = async (photos: Blob[]) => {
-    setMessage(null);
-    setBusy(`Preparing page 1 of ${photos.length}…`);
-    try {
-      const document = await addPhotos(null, photos, (done, total) =>
-        setBusy(done < total ? `Preparing page ${done + 1} of ${total}…` : "Opening…")
-      );
-      router.push(`/scan?d=${document.id}`);
-    } catch (cause) {
-      setMessage(
-        isStorageFull(cause)
-          ? "Browser storage is full, so the scan couldn't be saved. Delete scans or recordings you no longer need."
-          : cause instanceof Error
-            ? cause.message
-            : "The scan couldn't be made."
-      );
-    }
-    setBusy(null);
-  };
 
   const total = scans.documents.reduce((sum, document) => sum + document.size, 0);
 
@@ -128,17 +113,16 @@ export function Scanner() {
           <div className="flex flex-col gap-1">
             <h2 className="text-xl font-semibold">New scan</h2>
             <p className="text-base text-muted-foreground">
-              Photograph each page, or pick photos you already took. Pages are straightened, cleaned up
-              and joined into one PDF.
+              Photograph each page, or pick photos you already took. Each page is straightened and
+              cleaned up, and you can brighten or fix it before it&apos;s saved. Pages are joined into one PDF.
             </p>
           </div>
         </div>
-        <AddPages onPhotos={(photos) => void start(photos)} busy={busy} primary />
-        {message && (
-          <p role="alert" className="text-base font-medium text-red-700 dark:text-red-400">
-            {message}
-          </p>
-        )}
+        <AddPages
+          documentId={null}
+          primary
+          onAdded={(documentId, review) => router.push(`/scan?d=${documentId}${review ? `&p=${review}` : ""}`)}
+        />
       </section>
 
       {scans.documents.length > 0 ? (
