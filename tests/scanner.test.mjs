@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { detectPage, splitLevel } from "../app/scan/_lib/detect-edges.ts";
+import { detectPage, fitSide, paperLikeness, splitLevel } from "../app/scan/_lib/detect-edges.ts";
 import { applyFilter, evenLighting, toBlackAndWhite, whitenPaper } from "../app/scan/_lib/filters.ts";
 import { FULL_FRAME, isConvex, outputSize, pageToPhoto, rotate, straighten } from "../app/scan/_lib/geometry.ts";
 import { buildPdf, jpegColorSpace, layoutPage } from "../app/scan/_lib/pdf.ts";
@@ -77,6 +77,68 @@ test("small bright specks elsewhere don't distract from the page", () => {
   assert.ok(found);
   near(found[0].x * 319, 60, 2);
   near(found[2].y * 239, 200, 2);
+});
+
+test("bright wood scores far below paper, even bluish or yellowish paper", () => {
+  const wood = paperLikeness(205, 150, 70);
+  assert.ok(paperLikeness(235, 235, 235) > 220);
+  assert.ok(paperLikeness(190, 205, 215) > 170, "paper under cool light");
+  assert.ok(paperLikeness(225, 215, 190) > 170, "paper under warm light");
+  assert.ok(wood < 60, `wood scores ${wood}`);
+});
+
+test("a page on a bright wooden table is found once colour is taken into account", () => {
+  const width = 300;
+  const height = 400;
+  const corners = [
+    { x: 20, y: 40 },
+    { x: 285, y: 55 },
+    { x: 280, y: 340 },
+    { x: 25, y: 350 },
+  ];
+  // Brightness alone can't tell these apart: the wood is as bright as the paper.
+  const mask = photoOfPage(width, height, corners, { paper: 1, desk: 0 });
+  const gray = new Uint8Array(width * height);
+  mask.forEach((isPaper, index) => {
+    gray[index] = isPaper ? paperLikeness(195, 208, 216) : paperLikeness(205, 150, 70);
+  });
+  const found = detectPage(gray, width, height);
+  assert.ok(found, "no page found");
+  found.forEach((corner, index) => {
+    near(corner.x * (width - 1), corners[index].x, 3);
+    near(corner.y * (height - 1), corners[index].y, 3);
+  });
+});
+
+test("something bright touching the page doesn't drag a corner away", () => {
+  const corners = [
+    { x: 60, y: 50 },
+    { x: 250, y: 50 },
+    { x: 250, y: 200 },
+    { x: 60, y: 200 },
+  ];
+  const gray = photoOfPage(320, 240, corners);
+  // A bright strip (another sheet, glare) running off from the top right corner.
+  for (let y = 20; y < 60; y++) {
+    gray.fill(220, y * 320 + 240, y * 320 + 300);
+  }
+  const found = detectPage(gray, 320, 240);
+  assert.ok(found, "no page found");
+  near(found[1].x * 319, 250, 4);
+  near(found[1].y * 239, 50, 4);
+});
+
+test("a side is fitted through its straight part, ignoring strays", () => {
+  const points = [];
+  for (let t = 0; t < 100; t++) {
+    points.push([t, 10 + t * 0.1]);
+  }
+  for (let t = 0; t < 12; t++) {
+    points[t][1] = 60;
+  }
+  const line = fitSide(points);
+  near(line.slope, 0.1, 0.01);
+  near(line.offset, 10, 0.5);
 });
 
 test("a page filling the whole photo has no edges to find", () => {

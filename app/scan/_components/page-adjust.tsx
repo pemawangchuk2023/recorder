@@ -9,7 +9,7 @@ import { findCorners, renderPage, type PageSettings } from "@/app/scan/_lib/proc
 import { cn } from "@/lib/utils";
 
 const CORNER_NAMES = ["Top left", "Top right", "Bottom right", "Bottom left"];
-const PREVIEW_SIDE = 900;
+const PREVIEW_SIDE = 1400;
 
 const button =
   "inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-border transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40";

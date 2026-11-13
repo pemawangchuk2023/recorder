@@ -97,6 +97,23 @@ function CameraDialog({ documentId, onClose }: CameraDialogProps) {
           return;
         }
         stream = opened;
+        // Ask for the sharpest picture this camera can give, and for it to
+        // keep refocusing: small print needs every pixel.
+        const track = opened.getVideoTracks()[0];
+        const limits = track?.getCapabilities?.() as
+          | (MediaTrackCapabilities & { focusMode?: string[] })
+          | undefined;
+        if (track && limits?.width?.max && limits.height?.max) {
+          void track
+            .applyConstraints({
+              width: { ideal: limits.width.max },
+              height: { ideal: limits.height.max },
+              ...(limits.focusMode?.includes("continuous")
+                ? { advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet] }
+                : {}),
+            })
+            .catch(() => {});
+        }
         if (videoRef.current) {
           videoRef.current.srcObject = opened;
         }

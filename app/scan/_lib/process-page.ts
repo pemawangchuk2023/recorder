@@ -1,4 +1,4 @@
-import { detectPage } from "@/app/scan/_lib/detect-edges";
+import { detectPage, paperLikeness } from "@/app/scan/_lib/detect-edges";
 import { applyFilter, type ScanFilter } from "@/app/scan/_lib/filters";
 import { FULL_FRAME, MAX_OUTPUT_SIDE, isConvex, rotate, straighten, type Corners, type Pixels } from "@/app/scan/_lib/geometry";
 
@@ -6,7 +6,7 @@ import { FULL_FRAME, MAX_OUTPUT_SIDE, isConvex, rotate, straighten, type Corners
 // print at A4, without a phone's 50-megapixel photo filling the storage.
 const MAX_PHOTO_SIDE = 3000;
 // Edge-finding looks at a small copy of the photo.
-const DETECT_SIDE = 320;
+const DETECT_SIDE = 400;
 const THUMBNAIL_SIDE = 480;
 // Found corners are kept at this share of their distance from the centre.
 const EDGE_INSET = 0.985;
@@ -106,7 +106,7 @@ export function grayCopy(
   const { data, width, height } = pixelsOf(canvas);
   const gray = new Uint8Array(width * height);
   for (let index = 0; index < gray.length; index++) {
-    gray[index] = (data[index * 4] * 299 + data[index * 4 + 1] * 587 + data[index * 4 + 2] * 114) / 1000;
+    gray[index] = paperLikeness(data[index * 4], data[index * 4 + 1], data[index * 4 + 2]);
   }
   return { gray, width, height };
 }
@@ -118,11 +118,8 @@ export async function preparePhoto(file: Blob): Promise<Blob> {
 
 // Where the page is in the photo; the whole photo when no page stands out.
 export async function findCorners(photo: Blob): Promise<{ corners: Corners; found: boolean }> {
-  const { data, width, height } = pixelsOf(await drawPhoto(photo, DETECT_SIDE));
-  const gray = new Uint8Array(width * height);
-  for (let index = 0; index < gray.length; index++) {
-    gray[index] = (data[index * 4] * 299 + data[index * 4 + 1] * 587 + data[index * 4 + 2] * 114) / 1000;
-  }
+  const small = await drawPhoto(photo, DETECT_SIDE);
+  const { gray, width, height } = grayCopy(small as CanvasImageSource, small.width, small.height);
   const detected = detectPage(gray, width, height);
   if (!detected || !isConvex(detected)) {
     return { corners: FULL_FRAME, found: false };

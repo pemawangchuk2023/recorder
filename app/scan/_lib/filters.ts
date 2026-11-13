@@ -42,7 +42,9 @@ export function whitenPaper(data: Uint8ClampedArray, paperShare = 1): void {
     }
     return 255;
   };
-  const black = levelAt(0.02);
+  // The very darkest specks only: text is a small share of a page, and
+  // taking more than this as "black" would crush letters into blobs.
+  const black = Math.min(levelAt(0.002), 60);
   // Paper is the bulk of a page, so the level 60% of pixels are below is
   // already paper; pushing that to white clears shadows and yellowing.
   const white = Math.max(black + 16, levelAt(0.6) * paperShare);
@@ -161,7 +163,7 @@ export function evenLighting(data: Uint8ClampedArray, width: number, height: num
 
 // Darkens everything short of white, so thin or faint writing (pencil,
 // a tired printer) stands out. White paper stays white.
-export function deepenInk(data: Uint8ClampedArray, strength = 1.45): void {
+export function deepenInk(data: Uint8ClampedArray, strength = 1.12): void {
   const curve = new Uint8ClampedArray(256);
   for (let level = 0; level < 256; level++) {
     curve[level] = 255 * Math.pow(level / 255, strength);
@@ -170,6 +172,30 @@ export function deepenInk(data: Uint8ClampedArray, strength = 1.45): void {
     data[index] = curve[data[index]];
     data[index + 1] = curve[data[index + 1]];
     data[index + 2] = curve[data[index + 2]];
+  }
+}
+
+// Crisper letter edges, the way a scanner's output looks next to a photo.
+// Each pixel is pushed away from the average of its neighbours.
+export function sharpen(data: Uint8ClampedArray, width: number, height: number, amount = 0.6): void {
+  if (width < 3 || height < 3) {
+    return;
+  }
+  const source = new Uint8ClampedArray(data);
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const index = (y * width + x) * 4;
+      const up = index - width * 4;
+      const down = index + width * 4;
+      for (let channel = 0; channel < 3; channel++) {
+        const around =
+          (source[up - 4 + channel] + source[up + channel] + source[up + 4 + channel] +
+            source[index - 4 + channel] + source[index + 4 + channel] +
+            source[down - 4 + channel] + source[down + channel] + source[down + 4 + channel]) / 8;
+        const here = source[index + channel];
+        data[index + channel] = here + (here - around) * amount;
+      }
+    }
   }
 }
 
@@ -277,8 +303,11 @@ export function applyFilter(
   }
   if (filter !== "original") {
     evenLighting(data, width, height);
-    whitenPaper(data, 0.9);
+    // Gentle on purpose: the paper goes white and the ink a little darker,
+    // but letters keep their own weight instead of turning heavy and blotchy.
+    whitenPaper(data, 0.93);
     deepenInk(data);
+    sharpen(data, width, height);
   }
   adjustTone(data, tone);
 }
