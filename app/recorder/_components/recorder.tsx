@@ -3,6 +3,10 @@
 import { useRef, useState, useSyncExternalStore } from "react";
 import { FloatingBubble } from "@/app/recorder/_components/floating-bubble";
 import { Notices } from "@/app/recorder/_components/notices";
+import { RecoveryBanner } from "@/app/recorder/_components/recovery-banner";
+import { SetupCheck } from "@/app/recorder/_components/setup-check";
+import { SpeakerNotes } from "@/app/recorder/_components/speaker-notes";
+import { StorageStatus } from "@/app/recorder/_components/storage-status";
 import { RecorderControls } from "@/app/recorder/_components/recorder-controls";
 import { RecorderPreview } from "@/app/recorder/_components/recorder-preview";
 import { ScreenAreaPicker } from "@/app/recorder/_components/screen-area-picker";
@@ -20,6 +24,7 @@ import {
   useFloatingBubble,
 } from "@/app/recorder/_hooks/use-floating-bubble";
 import { useKeyboardShortcuts } from "@/app/recorder/_hooks/use-keyboard-shortcuts";
+import { useLeaveGuard } from "@/app/recorder/_hooks/use-leave-guard";
 import { useLibrarySave } from "@/app/recorder/_hooks/use-library-save";
 import { useObjectUrl } from "@/app/recorder/_hooks/use-object-url";
 import { useSavedSettings } from "@/app/recorder/_hooks/use-saved-settings";
@@ -40,6 +45,8 @@ import type {
   ScreenCameraLayout,
   TranscriptSegment,
 } from "@/app/recorder/_lib/types";
+import { ShortcutsHelp } from "@/components/shortcuts-help";
+import { RECORDER_SHORTCUTS, RECORDER_SHORTCUTS_NOTE } from "@/constants/shortcuts";
 import { cn } from "@/lib/utils";
 
 // A trimmed version of a finished recording, tied to the recording it came from.
@@ -102,6 +109,8 @@ export function Recorder() {
     !recorder.isCountingDown &&
     (recorder.status === "idle" || recorder.status === "stopped");
   const isActive = recorder.status === "recording" || recorder.status === "paused";
+  // Leaving now would lose the take: it's being recorded, finished or saved.
+  useLeaveGuard(isActive || recorder.isCountingDown || recorder.isFinishing || library?.status === "saving");
 
   // Restart and Discard pause the recording while asking, like Loom. A
   // blocking confirm() would freeze the video capture instead.
@@ -239,6 +248,7 @@ export function Recorder() {
             up-to-date Chrome or Edge.
           </p>
         )}
+        <RecoveryBanner />
         <Notices error={recorder.error} notices={[...cameraNotices, ...recorder.notices]} />
         <RecorderPreview
           status={recorder.status}
@@ -301,6 +311,18 @@ export function Recorder() {
           onConfirm={handleConfirm}
           onCancelConfirm={handleCancelConfirm}
         />
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 px-2">
+          <StorageStatus
+            resolution={settings.resolution}
+            frameRate={settings.frameRate}
+            quality={settings.quality}
+            isRecording={isActive}
+            onLowSpace={recorder.stop}
+          />
+          <ShortcutsHelp groups={RECORDER_SHORTCUTS} note={RECORDER_SHORTCUTS_NOTE} />
+        </div>
+        {recorder.status !== "stopped" && <SpeakerNotes />}
+        {recorder.status === "idle" && !recorder.isCountingDown && <SetupCheck />}
         {showsAreaPicker && recorder.screenPreview && recorder.stackedFrame && (
           <ScreenAreaPicker
             stream={recorder.screenPreview}

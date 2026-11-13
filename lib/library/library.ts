@@ -1,12 +1,17 @@
 import {
   readAllDetails,
+  readAllFolders,
   readDetails,
   readFiles,
+  removeFolder,
   removeRecordings,
   writeDetails,
+  writeFolder,
+  writeFolderOf,
   writeRecording,
+  writeThumbnail,
 } from "@/lib/library/recordings-db";
-import type { LibraryRecording, NewLibraryRecording } from "@/lib/library/types";
+import type { LibraryFolder, LibraryRecording, NewLibraryRecording } from "@/lib/library/types";
 import { readVideoDetails } from "@/lib/library/video-details";
 import type { Chapter, TranscriptSegment } from "@/app/recorder/_lib/types";
 
@@ -52,6 +57,7 @@ export async function addRecording({
   video,
   transcript,
   chapters,
+  folderId = null,
 }: NewLibraryRecording): Promise<LibraryRecording> {
   const details = await readVideoDetails(video);
   const now = Date.now();
@@ -68,6 +74,7 @@ export async function addRecording({
     height: details.height,
     transcript,
     chapters,
+    folderId,
   };
   await writeRecording(recording, { id: recording.id, video, thumbnail: details.thumbnail });
   notify();
@@ -118,7 +125,7 @@ export async function renameRecording(id: string, title: string): Promise<void> 
 // Small edits to a recording's details, such as its chapters.
 export async function updateRecording(
   id: string,
-  patch: Partial<Pick<LibraryRecording, "chapters">>
+  patch: Partial<Pick<LibraryRecording, "chapters" | "comments" | "summary">>
 ): Promise<void> {
   const existing = await readDetails(id);
   if (!existing) {
@@ -130,6 +137,57 @@ export async function updateRecording(
 
 export async function deleteRecordings(ids: string[] | "all"): Promise<void> {
   await removeRecordings(ids);
+  notify();
+}
+
+// Uses the given picture as the recording's thumbnail from now on.
+export async function setRecordingThumbnail(id: string, thumbnail: Blob): Promise<void> {
+  const existing = await readDetails(id);
+  if (!existing) {
+    return;
+  }
+  const now = Date.now();
+  await writeThumbnail({ ...existing, updatedAt: now, thumbnailVersion: now }, thumbnail);
+  notify();
+}
+
+export const MAX_FOLDER_NAME_LENGTH = 60;
+
+// Folders in name order.
+export async function listFolders(): Promise<LibraryFolder[]> {
+  const folders = await readAllFolders();
+  return folders.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true }));
+}
+
+export async function createFolder(name: string): Promise<LibraryFolder | null> {
+  const trimmed = name.trim().slice(0, MAX_FOLDER_NAME_LENGTH);
+  if (!trimmed) {
+    return null;
+  }
+  const folder: LibraryFolder = { id: crypto.randomUUID(), name: trimmed, createdAt: Date.now() };
+  await writeFolder(folder);
+  notify();
+  return folder;
+}
+
+export async function renameFolder(folder: LibraryFolder, name: string): Promise<void> {
+  const trimmed = name.trim().slice(0, MAX_FOLDER_NAME_LENGTH);
+  if (!trimmed || trimmed === folder.name) {
+    return;
+  }
+  await writeFolder({ ...folder, name: trimmed });
+  notify();
+}
+
+// The recordings inside are kept; they just stop being in a folder.
+export async function deleteFolder(id: string): Promise<void> {
+  await removeFolder(id);
+  notify();
+}
+
+// Pass null to take recordings out of their folder.
+export async function moveRecordings(ids: string[], folderId: string | null): Promise<void> {
+  await writeFolderOf(ids, folderId);
   notify();
 }
 

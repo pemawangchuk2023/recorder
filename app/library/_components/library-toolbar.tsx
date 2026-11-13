@@ -1,7 +1,7 @@
 "use client";
 
-import { Search, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { ListChecks, Search, Trash2, Upload } from "lucide-react";
+import { useRef, useState } from "react";
 import { LIBRARY_SORTS, type LibrarySort } from "@/constants/recorder";
 
 interface LibraryToolbarProps {
@@ -11,6 +11,10 @@ interface LibraryToolbarProps {
   onSortChange: (sort: LibrarySort) => void;
   count: number;
   onDeleteAll: () => void;
+  // Starts picking several recordings to move or delete together.
+  onSelect: () => void;
+  onImport: (files: File[]) => void;
+  isImporting: boolean;
 }
 
 export function LibraryToolbar({
@@ -20,8 +24,12 @@ export function LibraryToolbar({
   onSortChange,
   count,
   onDeleteAll,
+  onSelect,
+  onImport,
+  isImporting,
 }: LibraryToolbarProps) {
   const [confirming, setConfirming] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (confirming) {
     return (
@@ -84,6 +92,38 @@ export function LibraryToolbar({
           ))}
         </select>
       </label>
+      <button
+        type="button"
+        onClick={onSelect}
+        className="inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-base font-medium hover:bg-muted"
+      >
+        <ListChecks className="size-4" aria-hidden="true" />
+        Select
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/mp4,.mp4,.m4v,.mov"
+        multiple
+        hidden
+        onChange={(event) => {
+          const files = [...(event.target.files ?? [])];
+          event.target.value = "";
+          if (files.length > 0) {
+            onImport(files);
+          }
+        }}
+      />
+      <button
+        type="button"
+        disabled={isImporting}
+        onClick={() => fileInputRef.current?.click()}
+        title="Add MP4 files from this computer to the library"
+        className="inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-base font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Upload className="size-4" aria-hidden="true" />
+        {isImporting ? "Adding…" : "Add MP4"}
+      </button>
       <button
         type="button"
         onClick={() => setConfirming(true)}

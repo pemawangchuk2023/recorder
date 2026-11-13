@@ -10,6 +10,7 @@ import type {
   RecordingSessionOptions,
 } from "@/app/recorder/_lib/recording-session";
 import type { VideoCodecChoice } from "@/app/recorder/_lib/types";
+import { openTakeFile } from "@/lib/takes/take-files";
 
 // Loaded on demand so the recorder page renders without waiting for it.
 const loadMediabunny = () => import("mediabunny");
@@ -88,6 +89,7 @@ export async function createMp4Session({
     Mp4OutputFormat,
     Output,
     Quality,
+    StreamTarget,
     canEncodeAudio,
   } = await loadMediabunny();
 
@@ -99,10 +101,20 @@ export async function createMp4Session({
     }
   };
 
-  // fastStart puts the index at the front, so players can start instantly.
+  // The take is written to a file on this device as it's recorded, so a crash
+  // or a closed tab can't lose it (see take-files.ts). Where the browser can't
+  // do that, it's kept in memory until Stop, as before.
+  const takeFile = await openTakeFile().catch(() => null);
+  const memoryTarget = takeFile ? null : new BufferTarget();
   const output = new Output({
-    format: new Mp4OutputFormat({ fastStart: "in-memory" }),
-    target: new BufferTarget(),
+    format: new Mp4OutputFormat(
+      takeFile
+        ? // Written a fragment at a time; finish() rewrites it with the index in front.
+          { fastStart: "fragmented" }
+        : // fastStart puts the index at the front, so players can start instantly.
+          { fastStart: "in-memory" }
+    ),
+    target: memoryTarget ?? new StreamTarget(takeFile!.writable),
   });
 
   const videoSource = new MediaStreamVideoTrackSource(
@@ -137,6 +149,7 @@ export async function createMp4Session({
     // AAC plays everywhere; Opus is the fallback where AAC can't be encoded.
     const audioCodec = (await canEncode("aac")) ? "aac" : (await canEncode("opus")) ? "opus" : null;
     if (!audioCodec) {
+      await takeFile?.discard();
       throw new Error(`No audio encoder for ${sampleRate} Hz.`);
     }
     const audioSource = new AudioSampleSource({ codec: audioCodec, quality: audioQuality });
@@ -157,6 +170,9 @@ export async function createMp4Session({
         .then(() => audioSource.add(sample))
         .catch(reportError)
         .finally(() => sample.close());
+    }).catch(async (cause: unknown) => {
+      await takeFile?.discard();
+      throw cause;
     });
   }
 
@@ -177,8 +193,14 @@ export async function createMp4Session({
       closing = true;
       stopTap?.();
       await pendingAudio;
+      if (takeFile) {
+        // If the file couldn't be completed (say the disk filled up), what
+        // was written before that is still a whole video.
+        await output.finalize().catch(() => {});
+        return takeFile.finish();
+      }
       await output.finalize();
-      const buffer = output.target.buffer;
+      const buffer = memoryTarget?.buffer;
       if (!buffer) {
         throw new Error("The recording produced no data.");
       }
@@ -188,8 +210,9 @@ export async function createMp4Session({
       closing = true;
       stopTap?.();
       if (output.state === "pending" || output.state === "started") {
-        await output.cancel();
+        await output.cancel().catch(() => {});
       }
+      await takeFile?.discard();
     },
   };
 }

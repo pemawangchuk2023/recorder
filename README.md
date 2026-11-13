@@ -26,11 +26,33 @@ nothing is uploaded.
   searchable transcript and `.srt`.
 - **Flow**: 0/3/5/10 s countdown (skippable), pause/resume, restart, discard,
   keyboard shortcuts and chapter markers. Settings are remembered.
+- **Crash protection**: each take is written to a private file on your device
+  while it records. If the tab crashes or is closed, the recorder offers the
+  take back next time (minus up to the last 10 seconds). Closing the tab
+  mid-recording asks first, links open in a new tab, and a take stops by
+  itself before browser storage runs out.
+- **Setup check**: one panel shows what this browser can do and how to fix
+  blocked camera, microphone or screen permissions.
 - **Review**: rename, trim, playback speed, save a frame as PNG, and export to
   MP3, GIF, WebM and more, with a "Ready for YouTube" panel.
+- **Editor** (`/edit`): cut any part out (start, end or middle), remove pauses
+  in one click, cut a sentence by cutting it from the transcript, crop
+  (free, 16:9, 9:16, 1:1, 4:5), change speed from 0.5× to 3× with natural
+  pitch, and add text, arrows, boxes or blur boxes for anything private. Undo
+  and redo; unsaved edits are remembered. Saving makes a new recording and
+  never changes the original.
 - **Library** (`/library`): every take is saved automatically to IndexedDB in
-  your browser. Search titles and transcripts, sort, watch, rename, download
-  or delete.
+  your browser. Folders, search across titles and transcripts, sort, rename,
+  multi-select to move or delete, add MP4 files from disk, see what uses the
+  most space, and back the whole library up to a folder on your computer.
+- **Speaker notes**: type a script, open it in its own window with big text
+  and a self-moving scroll, and read from it while you record.
+- **Notes and reactions**: pin a note or an emoji to any moment of a
+  recording; click one to jump there. They stay on your device.
+- **Custom thumbnails**: pause on a frame and make it the recording's cover.
+- **On-device summary and title**: written from the transcript by Chrome's
+  built-in language model, where the browser and computer support it. Nothing
+  is sent anywhere.
 - **Converter** (`/convert`): batch-convert video and audio between formats.
 - **Light and dark themes.**
 
@@ -43,6 +65,28 @@ camera, and other browsers may support only some features.
 
 Screen and camera capture need a secure origin: HTTPS, or `localhost` during
 development.
+
+### What browsers don't allow
+
+These are limits of the web platform, not settings:
+
+- **Computer sound** comes from a shared Chrome/Edge tab (and from the whole
+  screen on Windows and ChromeOS). A single window never carries sound, and
+  Firefox and Safari can't capture it at all. The microphone always works.
+- **Keyboard shortcuts** only reach the recorder while its tab is in front.
+  From another app, use the floating camera bubble's buttons or the browser's
+  "Stop sharing" bar.
+- **Storage** is a share of your disk that the browser decides (shown in the
+  library). Clearing site data deletes the library, so use
+  *Manage storage → Back up to a folder* for anything you need to keep.
+- **Crash protection, folder backup and the floating bubble** need Chrome or
+  Edge. Elsewhere a take is held in memory until you press Stop.
+- **Captions** are transcribed live on your device, so a recording made
+  without them can't get a transcript afterwards.
+- **Very long takes** (over about 1 GB) are saved as a fragmented MP4, which
+  plays in browsers, VLC and YouTube; the Converter can rewrite it as a
+  regular MP4. Edited videos are built in memory, so the editor suits
+  recordings of minutes to an hour or so rather than many hours.
 
 ## Privacy
 
@@ -86,10 +130,11 @@ as Vercel or Netlify, or on your own server with `npm run build && npm start`.
 app/
   recorder/     Recorder UI (_components), React state (_hooks), capture and encoding (_lib)
   library/      The library page
+  edit/         The editor: edit plan, renderer, timeline and tools
   convert/      The converter page
   _components/  Site header, footer and home page sections
 components/     Shared UI (shadcn/ui) and theme components
-lib/            IndexedDB library storage and shared helpers
+lib/            IndexedDB library storage, crash-safe take files, shared helpers
 constants/      Copy, option lists and defaults
 tests/          Unit tests
 ```

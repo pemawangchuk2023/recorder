@@ -5,6 +5,7 @@ import { YouTubeReadyPanel } from "@/app/_components/youtube/youtube-ready-panel
 import { ChaptersPanel } from "@/app/recorder/_components/chapters-panel";
 import { ExportPanel } from "@/app/recorder/_components/export-panel";
 import { LibraryStatus } from "@/app/recorder/_components/library-status";
+import { OpenInEditor } from "@/app/recorder/_components/open-in-editor";
 import { PlayerTools } from "@/app/recorder/_components/player-tools";
 import { RecordingActions } from "@/app/recorder/_components/recording-actions";
 import { RecordingTitle } from "@/app/recorder/_components/recording-title";
@@ -86,6 +87,7 @@ export function ReviewPanel({
             <LibraryStatus status={library.status} />
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <OpenInEditor library={library} />
             <RecordingActions
               blob={blob}
               filename={filename}

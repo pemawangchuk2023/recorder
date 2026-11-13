@@ -104,3 +104,14 @@ declare global {
     install(options: SpeechRecognitionOptions): Promise<boolean>;
   };
 }
+
+// File System Access (Chrome/Edge): lets the user pick a folder to write to.
+declare global {
+  interface Window {
+    showDirectoryPicker?: (options?: {
+      id?: string;
+      mode?: "read" | "readwrite";
+      startIn?: "desktop" | "documents" | "downloads" | "videos";
+    }) => Promise<FileSystemDirectoryHandle>;
+  }
+}

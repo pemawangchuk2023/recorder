@@ -10,6 +10,7 @@ import {
 } from "@/lib/library/library";
 import { isLibraryAvailable } from "@/lib/library/recordings-db";
 import { defaultRecordingTitle } from "@/lib/library/titles";
+import { markTakeSaved } from "@/lib/takes/take-files";
 
 export type LibrarySaveStatus = "saving" | "saved" | "failed" | "full" | "unavailable";
 
@@ -85,6 +86,8 @@ export function useLibrarySave(recording: FinishedRecording | null): LibrarySave
       chapters: firstChapters,
     }).then(
       (saved) => {
+        // The library now holds the take, so its recording file can go.
+        markTakeSaved(source);
         setStatus(source, "saved", title);
         return saved.id;
       },

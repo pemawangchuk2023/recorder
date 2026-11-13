@@ -1,9 +1,12 @@
 "use client";
 
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Scissors } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { YouTubeReadyPanel } from "@/app/_components/youtube/youtube-ready-panel";
+import { AiSummary } from "@/app/library/_components/ai-summary";
+import { CommentsPanel } from "@/app/library/_components/comments-panel";
+import { ThumbnailButton } from "@/app/library/_components/thumbnail-button";
 import { useStoredBlob } from "@/app/library/_hooks/use-stored-blob";
 import { ChaptersPanel } from "@/app/recorder/_components/chapters-panel";
 import { ExportPanel } from "@/app/recorder/_components/export-panel";
@@ -23,7 +26,7 @@ import {
   updateRecording,
 } from "@/lib/library/library";
 import { titleToFilename } from "@/lib/library/titles";
-import { fileVersionOf, type LibraryRecording } from "@/lib/library/types";
+import { fileVersionOf, type LibraryRecording, type RecordingComment } from "@/lib/library/types";
 
 interface WatchViewProps {
   recording: LibraryRecording;
@@ -37,6 +40,11 @@ export function WatchView({ recording, onDeleted }: WatchViewProps) {
   const changeChapters = (next: Chapter[]) => {
     setChapters(next);
     void updateRecording(recording.id, { chapters: next });
+  };
+  const [comments, setComments] = useState<RecordingComment[]>(recording.comments ?? []);
+  const changeComments = (next: RecordingComment[]) => {
+    setComments(next);
+    void updateRecording(recording.id, { comments: next });
   };
   const { blob, loaded } = useStoredBlob(recording.id, fileVersionOf(recording), getRecordingVideo);
   const url = useObjectUrl(blob);
@@ -89,6 +97,7 @@ export function WatchView({ recording, onDeleted }: WatchViewProps) {
             )}
           </div>
           {url && <PlayerTools playbackRef={playbackRef} baseName={baseName} />}
+          {url && <ThumbnailButton recordingId={recording.id} playbackRef={playbackRef} />}
 
           <div className="flex flex-col gap-4 rounded-3xl border bg-card p-5 shadow-sm sm:p-6">
             <div className="flex flex-col gap-1.5">
@@ -99,18 +108,39 @@ export function WatchView({ recording, onDeleted }: WatchViewProps) {
               />
               <p className="text-sm text-muted-foreground">{details.join(" · ")}</p>
             </div>
-            {blob && (
-              <RecordingActions
-                blob={blob}
-                filename={filename}
-                onDelete={handleDelete}
-                deleteQuestion="Delete this recording from your library? It can't be recovered."
-              />
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={`/edit?v=${recording.id}`}
+                className="inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-base font-semibold ring-1 ring-border transition-colors hover:bg-muted"
+              >
+                <Scissors className="size-4" aria-hidden="true" />
+                Edit: cut, crop, annotate
+              </Link>
+              {blob && (
+                <RecordingActions
+                  blob={blob}
+                  filename={filename}
+                  onDelete={handleDelete}
+                  deleteQuestion="Delete this recording from your library? It can't be recovered."
+                />
+              )}
+            </div>
           </div>
         </div>
 
         <aside className="flex flex-col gap-6 rounded-3xl border bg-card p-5 sm:p-6">
+          <AiSummary
+            transcript={recording.transcript}
+            summary={recording.summary}
+            onSummary={(summary) => void updateRecording(recording.id, { summary })}
+            onTitle={(title) => void renameRecording(recording.id, title)}
+          />
+          <CommentsPanel
+            comments={comments}
+            duration={recording.duration}
+            playbackRef={playbackRef}
+            onChange={changeComments}
+          />
           {recording.transcript.length > 0 ? (
             <TranscriptPanel
               segments={recording.transcript}

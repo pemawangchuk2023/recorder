@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
-import { listRecordings, subscribeToLibrary } from "@/lib/library/library";
+import { listFolders, listRecordings, subscribeToLibrary } from "@/lib/library/library";
 import { isLibraryAvailable } from "@/lib/library/recordings-db";
-import type { LibraryRecording } from "@/lib/library/types";
+import type { LibraryFolder, LibraryRecording } from "@/lib/library/types";
 
 export type LibraryState =
   | { status: "loading" }
-  | { status: "ready"; recordings: LibraryRecording[] }
+  | { status: "ready"; recordings: LibraryRecording[]; folders: LibraryFolder[] }
   | { status: "error"; message: string };
 
-// Every recording in this browser, newest first; kept up to date as
-// recordings are added, renamed or deleted here or in another tab.
+// Every recording and folder in this browser, recordings newest first; kept
+// up to date as they are added, renamed, moved or deleted here or in another tab.
 export function useLibrary(): LibraryState {
   const [state, setState] = useState<LibraryState>({ status: "loading" });
 
@@ -20,10 +20,10 @@ export function useLibrary(): LibraryState {
         setState({ status: "error", message: "This browser can't store recordings." });
         return;
       }
-      listRecordings()
-        .then((recordings) => {
+      Promise.all([listRecordings(), listFolders()])
+        .then(([recordings, folders]) => {
           if (!cancelled) {
-            setState({ status: "ready", recordings });
+            setState({ status: "ready", recordings, folders });
           }
         })
         .catch(() => {
