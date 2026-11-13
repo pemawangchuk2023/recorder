@@ -11,6 +11,7 @@ export const NAV_LINKS: readonly NavLink[] = [
   { href: "/recorder", label: "Recorder" },
   { href: "/library", label: "Library" },
   { href: "/convert", label: "Converter" },
+  { href: "/scan", label: "Scanner" },
 ];
 
 export const FOOTER_GROUPS: readonly { title: string; links: readonly NavLink[] }[] = [
@@ -20,6 +21,7 @@ export const FOOTER_GROUPS: readonly { title: string; links: readonly NavLink[] 
       { href: "/recorder", label: "Screen recorder" },
       { href: "/library", label: "Your library" },
       { href: "/convert", label: "File converter" },
+      { href: "/scan", label: "Document scanner" },
     ],
   },
   {

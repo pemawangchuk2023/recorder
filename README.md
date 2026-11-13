@@ -53,6 +53,14 @@ nothing is uploaded.
 - **On-device summary and title**: written from the transcript by Chrome's
   built-in language model, where the browser and computer support it. Nothing
   is sent anywhere.
+- **Document scanner** (`/scan`): photograph paper pages with the camera, or
+  pick photos. Each page's edges are found, the page is straightened and
+  cleaned up (enhance, black & white, grey or original), and the pages are
+  joined into one PDF (A4, US Letter or the scan's own shape). Reorder,
+  rotate and re-adjust pages any time. Share the PDF through the device's
+  share sheet (email, WhatsApp and so on) or download it. Documents are kept
+  in this browser, like recordings. It does not read the text (no OCR) and
+  does not open existing PDF or Word files.
 - **Converter** (`/convert`): batch-convert video and audio between formats.
 - **Light and dark themes.**
 
@@ -131,6 +139,7 @@ app/
   recorder/     Recorder UI (_components), React state (_hooks), capture and encoding (_lib)
   library/      The library page
   edit/         The editor: edit plan, renderer, timeline and tools
+  scan/         The document scanner: edge finding, straightening, PDF writer
   convert/      The converter page
   _components/  Site header, footer and home page sections
 components/     Shared UI (shadcn/ui) and theme components
