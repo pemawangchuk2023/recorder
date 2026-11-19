@@ -2,10 +2,10 @@
 
 import { Camera, ImagePlus, Plus, X } from "lucide-react";
 import { Dialog } from "radix-ui";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { PageAdjust } from "@/app/scan/_components/page-adjust";
 import { detectPage } from "@/app/scan/_lib/detect-edges";
-import { isConvex, type Corners } from "@/app/scan/_lib/geometry";
+import { FULL_FRAME, isConvex, type Corners } from "@/app/scan/_lib/geometry";
 import { findCorners, grayCopy, preparePhoto, type PageSettings } from "@/app/scan/_lib/process-page";
 import { DEFAULT_FILTER, addPage, addPhotos, isStorageFull } from "@/app/scan/_lib/scans";
 
@@ -68,6 +68,9 @@ interface CameraDialogProps {
 // before it is saved.
 function CameraDialog({ documentId, existingPages, onClose }: CameraDialogProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const cameraFrameRef = useRef<HTMLDivElement>(null);
+  const manualCorners = useRef<Corners | null>(null);
+  const [manual, setManual] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aspect, setAspect] = useState<number | null>(null);
   const [outline, setOutline] = useState<Corners | null>(null);
@@ -134,7 +137,7 @@ function CameraDialog({ documentId, existingPages, onClose }: CameraDialogProps)
     }
     const timer = setInterval(() => {
       const video = videoRef.current;
-      if (!video || !video.videoWidth || video.readyState < 2) {
+      if (manualCorners.current || !video || !video.videoWidth || video.readyState < 2) {
         return;
       }
       try {
@@ -148,6 +151,48 @@ function CameraDialog({ documentId, existingPages, onClose }: CameraDialogProps)
     return () => clearInterval(timer);
   }, [reviewing, aspect]);
 
+  const changeCorner = (index: number, x: number, y: number) => {
+    const corners = [...(manualCorners.current ?? outline ?? FULL_FRAME)] as Corners;
+    corners[index] = { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
+    manualCorners.current = corners;
+    setManual(true);
+    setOutline(corners);
+  };
+
+  const resetOutline = () => {
+    manualCorners.current = null;
+    setManual(false);
+    setOutline(null);
+  };
+
+  const dragCorner = (event: ReactPointerEvent<HTMLButtonElement>, index: number) => {
+    const frame = cameraFrameRef.current;
+    if (!frame || event.button !== 0) return;
+    event.preventDefault();
+    const target = event.currentTarget;
+    const bounds = frame.getBoundingClientRect();
+    const corner = (manualCorners.current ?? outline ?? FULL_FRAME)[index];
+    const start = { x: event.clientX, y: event.clientY };
+    // Lock detection immediately. Keep the grab offset, including when a
+    // handle is inset at the edge of the camera view to stay reachable.
+    changeCorner(index, corner.x, corner.y);
+    target.setPointerCapture(event.pointerId);
+    target.focus({ preventScroll: true });
+    const move = (pointer: PointerEvent) => changeCorner(index,
+      corner.x + (pointer.clientX - start.x) / bounds.width,
+      corner.y + (pointer.clientY - start.y) / bounds.height);
+    const end = () => {
+      target.removeEventListener("pointermove", move);
+      target.removeEventListener("pointerup", end);
+      target.removeEventListener("pointercancel", end);
+      target.removeEventListener("lostpointercapture", end);
+    };
+    target.addEventListener("pointermove", move);
+    target.addEventListener("pointerup", end);
+    target.addEventListener("pointercancel", end);
+    target.addEventListener("lostpointercapture", end);
+  };
+
   const snap = async () => {
     const video = videoRef.current;
     if (!video || !video.videoWidth) {
@@ -155,6 +200,7 @@ function CameraDialog({ documentId, existingPages, onClose }: CameraDialogProps)
     }
     setWorking("snap");
     setError(null);
+    const selectedCorners = manualCorners.current;
     try {
       const canvas = document.createElement("canvas");
       canvas.width = video.videoWidth;
@@ -165,7 +211,9 @@ function CameraDialog({ documentId, existingPages, onClose }: CameraDialogProps)
         throw new Error("no frame");
       }
       const photo = await preparePhoto(frame);
-      const { corners, found } = await findCorners(photo);
+      const { corners, found } = selectedCorners
+        ? { corners: selectedCorners, found: false }
+        : await findCorners(photo);
       setShot({
         photo,
         settings: { corners, filter: DEFAULT_FILTER, turns: 0, brightness: 0, contrast: 0 },
@@ -191,6 +239,7 @@ function CameraDialog({ documentId, existingPages, onClose }: CameraDialogProps)
         onClose(saved.id);
         return;
       }
+      resetOutline();
       setShot(null);
     } catch (cause) {
       setError(isStorageFull(cause) ? STORAGE_FULL : "The page couldn't be saved. Try again.");
@@ -199,7 +248,8 @@ function CameraDialog({ documentId, existingPages, onClose }: CameraDialogProps)
   };
 
   const pageNumber = existingPages + savedCount + 1;
-  const points = outline?.map((corner) => `${corner.x * 100},${corner.y * 100}`).join(" ");
+  const liveCorners = outline ?? FULL_FRAME;
+  const points = liveCorners.map((corner) => `${corner.x * 100},${corner.y * 100}`).join(" ");
 
   return (
     <Dialog.Root open onOpenChange={(open) => !open && onClose(savedCount > 0 ? savedTo : null)}>
@@ -222,9 +272,13 @@ function CameraDialog({ documentId, existingPages, onClose }: CameraDialogProps)
               <Dialog.Description className={reviewing ? "text-sm text-muted-foreground" : "text-sm text-zinc-400"}>
                 {reviewing
                   ? "This is how the page will be saved. Brighten it, change its look or fix its edges first."
-                  : outline
-                    ? "Page found — hold steady and take the photo."
-                    : "Fill the view with the page. A darker surface underneath helps find its edges."}
+                  : manual
+                    ? isConvex(liveCorners)
+                      ? "Corners set by you — hold steady and take the photo, or drag to adjust."
+                      : "The corners are crossed. Drag each blue handle to its own corner of the paper."
+                    : outline
+                      ? "Check the blue outline. Drag any corner to fit the paper, then take the photo."
+                      : "Fit the page in the view, or drag the blue corners onto the paper."}
               </Dialog.Description>
             </div>
             <Dialog.Close
@@ -242,7 +296,7 @@ function CameraDialog({ documentId, existingPages, onClose }: CameraDialogProps)
                 {error}
               </p>
             ) : (
-              <div className="relative" style={box ? { width: box.width, height: box.height } : { width: "100%", height: "100%" }}>
+              <div ref={cameraFrameRef} className="relative" style={box ? { width: box.width, height: box.height } : { width: "100%", height: "100%" }}>
                 <video
                   ref={videoRef}
                   autoPlay
@@ -251,11 +305,32 @@ function CameraDialog({ documentId, existingPages, onClose }: CameraDialogProps)
                   onLoadedMetadata={(event) => setAspect(event.currentTarget.videoWidth / event.currentTarget.videoHeight)}
                   className="absolute inset-0 size-full object-contain"
                 />
-                {points && (
+                {aspect && (
                   <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" className="pointer-events-none absolute inset-0 size-full">
-                    <polygon points={points} fill="rgba(56,189,248,0.18)" stroke="#38bdf8" strokeWidth="3" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                    <polygon points={points} fill="rgba(56,189,248,0.18)" stroke={isConvex(liveCorners) ? "#38bdf8" : "#ef4444"} strokeWidth="3" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
                   </svg>
                 )}
+                {aspect && liveCorners.map((corner, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    aria-label={`${["Top left", "Top right", "Bottom right", "Bottom left"][index]} camera corner`}
+                    disabled={working !== null}
+                    onPointerDown={(event) => dragCorner(event, index)}
+                    onKeyDown={(event) => {
+                      const steps: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+                      const step = steps[event.key];
+                      if (!step) return;
+                      event.preventDefault();
+                      const amount = event.shiftKey ? 0.03 : 0.005;
+                      changeCorner(index, corner.x + step[0] * amount, corner.y + step[1] * amount);
+                    }}
+                    className="absolute grid size-11 -translate-x-1/2 -translate-y-1/2 touch-none select-none place-items-center rounded-full border-2 border-white bg-sky-500/70 shadow-lg focus-visible:ring-4 focus-visible:ring-sky-300"
+                    style={{ left: `clamp(22px, ${corner.x * 100}%, calc(100% - 22px))`, top: `clamp(22px, ${corner.y * 100}%, calc(100% - 22px))` }}
+                  >
+                    <span className="size-2 rounded-full bg-white" />
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -312,13 +387,17 @@ function CameraDialog({ documentId, existingPages, onClose }: CameraDialogProps)
               <button
                 type="button"
                 onClick={() => void snap()}
-                disabled={!aspect || working !== null}
+                disabled={!aspect || working !== null || !isConvex(liveCorners)}
                 aria-label="Take the photo"
                 className="grid size-16 place-items-center justify-self-center rounded-full bg-white ring-4 ring-white/30 transition-transform active:scale-95 disabled:opacity-30"
               >
                 <span className="size-12 rounded-full border-2 border-zinc-900" />
               </button>
-              <span />
+              {manual ? (
+                <button type="button" onClick={resetOutline} disabled={working !== null} className="min-h-11 rounded-full px-2 py-2 text-sm font-semibold hover:bg-white/10 disabled:opacity-40">
+                  Auto edges
+                </button>
+              ) : <span />}
             </div>
           )}
         </Dialog.Content>
