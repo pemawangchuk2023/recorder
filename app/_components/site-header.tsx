@@ -14,7 +14,7 @@ export function SiteHeader() {
           <Logo />
           {SITE_NAME}
         </Link>
-        <NavLinks className="hidden items-center gap-1 md:flex" />
+        <NavLinks className="hidden items-center gap-1 lg:flex" />
         <div className="flex items-center gap-1 sm:gap-2">
           <ThemeToggle />
           <Button asChild className="hidden h-10 rounded-full px-5 text-base sm:inline-flex">

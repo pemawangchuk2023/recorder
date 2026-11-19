@@ -56,15 +56,15 @@ function PageCard({
   const url = useBlobUrl(page.image);
   const [confirming, setConfirming] = useState(false);
   return (
-    <li className="group relative flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm">
-      <button type="button" onClick={onEdit} aria-label={`Adjust page ${number}`} className="grid aspect-[3/4] place-items-center bg-muted p-3">
+    <li className="group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-card shadow-sm">
+      <button type="button" onClick={onEdit} aria-label={`Adjust page ${number}`} className="relative aspect-[3/4] w-full min-w-0 bg-muted">
         {url && (
           // A local object URL: next/image can't optimise it.
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt={`Page ${number}`} className="max-h-full max-w-full object-contain shadow-md" />
+          <img src={url} alt={`Page ${number}`} className="absolute inset-0 size-full object-contain p-3" />
         )}
       </button>
-      <div className="flex items-center justify-between gap-1 px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-1 px-3 py-2">
         <span className="text-sm font-semibold tabular-nums">
           Page {number}
           {!page.edgesFound && page.corners.every((corner) => corner.x % 1 === 0 && corner.y % 1 === 0) && (
@@ -155,7 +155,7 @@ export function DocumentView({ document, pages, reviewPageId, onDeleted }: Docum
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-6 [overflow-wrap:anywhere]">
       <Link href="/scan" className="-ml-3 inline-flex items-center gap-2 self-start rounded-full px-3 py-1.5 text-base font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
         <ArrowLeft className="size-4" aria-hidden="true" />
         All scans
@@ -243,12 +243,26 @@ export function DocumentView({ document, pages, reviewPageId, onDeleted }: Docum
         <PageEditor key={editing.id} page={editing} pageNumber={pages.indexOf(editing) + 1} onClose={() => setEditingId(null)} />
       ) : (
         <>
-          <AddPages documentId={document.id} onAdded={(_, review) => review && setEditingId(review)} />
+          <section aria-labelledby="add-pages-heading" className="flex flex-col gap-3 rounded-3xl border bg-card p-5 shadow-sm">
+            <div className="flex flex-col gap-1">
+              <h2 id="add-pages-heading" className="text-lg font-semibold">
+                Add pages
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                New pages go at the end, as page {pages.length + 1} onwards. Scan as many as you need — they all go
+                into this one PDF.
+              </p>
+            </div>
+            <AddPages documentId={document.id} existingPages={pages.length} primary onAdded={(_, review) => review && setEditingId(review)} />
+          </section>
           {pages.length > 0 ? (
-            <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+            <ul className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
               {pages.map((page, index) => (
                 <PageCard key={page.id} page={page} number={index + 1} count={pages.length} document={document} onEdit={() => setEditingId(page.id)} />
               ))}
+              <li className="min-w-0">
+                <AddPages documentId={document.id} existingPages={pages.length} tile onAdded={(_, review) => review && setEditingId(review)} />
+              </li>
             </ul>
           ) : (
             <p className="rounded-2xl border border-dashed p-8 text-center text-base text-muted-foreground">

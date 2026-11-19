@@ -170,9 +170,9 @@ export function PageAdjust({ photo, settings, onChange, edgesFound }: PageAdjust
   const adjusted = brightness !== 0 || contrast !== 0;
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-2">
-      <div className="flex flex-col gap-4">
-        <div className="grid min-h-48 place-items-center rounded-2xl bg-muted p-3">
+    <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-2">
+      <div className="flex min-w-0 flex-col gap-4">
+        <div className="grid min-h-48 min-w-0 grid-cols-1 place-items-center rounded-2xl bg-muted p-3">
           {previewUrl ? (
             // A local object URL: next/image can't optimise it.
             // eslint-disable-next-line @next/next/no-img-element
@@ -238,7 +238,7 @@ export function PageAdjust({ photo, settings, onChange, edgesFound }: PageAdjust
         </div>
       </div>
 
-      <section className="rounded-2xl border">
+      <section className="min-w-0 rounded-2xl border">
         {/* Folded away on a phone when the edges were found; always open on a wide screen. */}
         <button
           type="button"
@@ -253,7 +253,7 @@ export function PageAdjust({ photo, settings, onChange, edgesFound }: PageAdjust
         </button>
         <div className={cn("flex-col gap-3 border-t p-4 lg:flex", edgesOpen ? "flex" : "hidden")}>
           <div className="rounded-2xl bg-zinc-950 p-5">
-            <div ref={frameRef} className="relative mx-auto w-fit touch-none select-none">
+            <div ref={frameRef} className="relative mx-auto w-fit max-w-full touch-none select-none">
               {photoUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={photoUrl} alt="The photo this page is made from" draggable={false} className="block max-h-[52vh] w-auto max-w-full" />

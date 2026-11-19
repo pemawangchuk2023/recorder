@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, ImagePlus, X } from "lucide-react";
+import { Camera, ImagePlus, Plus, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
 import { PageAdjust } from "@/app/scan/_components/page-adjust";
@@ -56,6 +56,8 @@ interface Shot {
 
 interface CameraDialogProps {
   documentId: string | null;
+  // Pages the document already has, so new ones are numbered after them.
+  existingPages: number;
   // Called when the dialog closes; `savedTo` is the document pages went
   // into, or null when nothing was saved.
   onClose: (savedTo: string | null) => void;
@@ -64,7 +66,7 @@ interface CameraDialogProps {
 // Scanning with the camera: line the page up (its outline lights up when
 // it's found), snap, then look the scanned page over and fix anything
 // before it is saved.
-function CameraDialog({ documentId, onClose }: CameraDialogProps) {
+function CameraDialog({ documentId, existingPages, onClose }: CameraDialogProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [aspect, setAspect] = useState<number | null>(null);
@@ -196,7 +198,7 @@ function CameraDialog({ documentId, onClose }: CameraDialogProps) {
     setWorking(null);
   };
 
-  const pageNumber = savedCount + 1;
+  const pageNumber = existingPages + savedCount + 1;
   const points = outline?.map((corner) => `${corner.x * 100},${corner.y * 100}`).join(" ");
 
   return (
@@ -276,12 +278,12 @@ function CameraDialog({ documentId, onClose }: CameraDialogProps) {
           )}
 
           {reviewing && shot ? (
-            <div className="flex flex-wrap items-center justify-end gap-2 border-t px-4 py-3 sm:px-5">
+            <div className="grid shrink-0 grid-cols-2 gap-3 border-t px-4 py-3 sm:grid-cols-[auto_1fr_1fr] sm:px-5">
               <button
                 type="button"
                 onClick={() => setShot(null)}
                 disabled={working !== null}
-                className="mr-auto rounded-full px-4 py-2.5 text-base font-semibold ring-1 ring-border hover:bg-muted disabled:opacity-40"
+                className="col-span-2 justify-self-start rounded-full px-4 py-2.5 text-base font-semibold ring-1 ring-border hover:bg-muted disabled:opacity-40 sm:col-span-1"
               >
                 Retake
               </button>
@@ -289,7 +291,7 @@ function CameraDialog({ documentId, onClose }: CameraDialogProps) {
                 type="button"
                 onClick={() => void save("next")}
                 disabled={working !== null || !isConvex(shot.settings.corners)}
-                className="rounded-full px-4 py-2.5 text-base font-semibold ring-1 ring-border hover:bg-muted disabled:opacity-40"
+                className="min-h-12 min-w-0 rounded-2xl px-3 py-2.5 text-sm font-semibold ring-1 ring-border hover:bg-muted disabled:opacity-40 sm:rounded-full sm:text-base"
               >
                 {working === "next" ? "Saving…" : "Save, scan next page"}
               </button>
@@ -297,7 +299,7 @@ function CameraDialog({ documentId, onClose }: CameraDialogProps) {
                 type="button"
                 onClick={() => void save("finish")}
                 disabled={working !== null || !isConvex(shot.settings.corners)}
-                className="rounded-full bg-red-600 px-5 py-2.5 text-base font-semibold text-white hover:bg-red-500 disabled:opacity-40"
+                className="min-h-12 min-w-0 rounded-2xl bg-red-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-40 sm:rounded-full sm:text-base"
               >
                 {working === "finish" ? "Saving…" : "Save and finish"}
               </button>
@@ -335,10 +337,14 @@ interface AddPagesProps {
   // been looked over yet (photos picked from files) and should be opened.
   onAdded: (documentId: string, reviewPageId: string | null) => void;
   primary?: boolean;
+  // Shown as a card in the grid of pages, where the next page will go.
+  tile?: boolean;
+  // Pages the document already has.
+  existingPages?: number;
 }
 
 // The two ways to get pages in: scan them with the camera, or pick pictures.
-export function AddPages({ documentId, onAdded, primary = false }: AddPagesProps) {
+export function AddPages({ documentId, onAdded, primary = false, tile = false, existingPages = 0 }: AddPagesProps) {
   const [cameraOpen, setCameraOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -358,9 +364,24 @@ export function AddPages({ documentId, onAdded, primary = false }: AddPagesProps
     setBusy(null);
   };
 
+  // In an open document the buttons say what they do there: add to it.
+  const adding = documentId !== null;
+
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-3">
+    <div
+      className={
+        tile
+          ? "flex h-full min-h-56 flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-4 text-center"
+          : "flex flex-col gap-3"
+      }
+    >
+      {tile && (
+        <p className="flex items-center gap-2 text-base font-semibold">
+          <Plus className="size-5 text-brand" aria-hidden="true" />
+          Add page
+        </p>
+      )}
+      <div className={tile ? "flex w-full flex-col gap-2" : "flex flex-wrap items-center gap-3"}>
         <button
           type="button"
           disabled={busy !== null}
@@ -368,11 +389,11 @@ export function AddPages({ documentId, onAdded, primary = false }: AddPagesProps
           className={`${button} ${primary ? "bg-red-600 text-white shadow-sm shadow-red-600/30 hover:bg-red-500" : "ring-1 ring-border hover:bg-muted"}`}
         >
           <Camera className="size-4" aria-hidden="true" />
-          Scan with camera
+          {tile ? "Camera" : adding ? "Add page with camera" : "Scan with camera"}
         </button>
         <button type="button" disabled={busy !== null} onClick={() => inputRef.current?.click()} className={`${button} ring-1 ring-border hover:bg-muted`}>
           <ImagePlus className="size-4" aria-hidden="true" />
-          Choose photos
+          {tile ? "Photos" : adding ? "Add pages from photos" : "Choose photos"}
         </button>
         <input
           ref={inputRef}
@@ -402,6 +423,7 @@ export function AddPages({ documentId, onAdded, primary = false }: AddPagesProps
       {cameraOpen && (
         <CameraDialog
           documentId={documentId}
+          existingPages={existingPages}
           onClose={(savedTo) => {
             setCameraOpen(false);
             if (savedTo) {
